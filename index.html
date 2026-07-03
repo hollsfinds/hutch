@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04b -->
+<!-- build 2026-07-04c -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -352,6 +352,14 @@ html{touch-action:manipulation}
   .txnhead{display:none}
   html,body{overflow-x:clip}
   #bulkbar{position:sticky;top:calc(var(--hdr,58px) + 6px);z-index:29;box-shadow:0 4px 14px rgba(34,58,78,.10)}
+  /* mileage log: purpose gets a readable full-width line */
+  .ml-head{display:none}
+  .ml-row{flex-wrap:wrap}
+  .ml-row .mlr-date{flex:1 1 auto!important;min-width:0}
+  .ml-row .mlr-miles{flex:0 0 84px!important}
+  .ml-row .mlr-purpose{flex:1 1 100%!important;order:5}
+  /* reports P&L: label + only-visible number columns, hidden ones collapse */
+  #pl-body>div{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,auto)) !important;gap:6px !important;font-size:.82rem}
   .txn-sticky{position:static;margin-top:0;padding-top:0}
   .txn{flex-wrap:wrap;row-gap:5px;padding:11px 2px}
   .txn input[type=checkbox]{order:1}
@@ -360,7 +368,7 @@ html{touch-action:manipulation}
   .txn .tagcol{order:4;flex:0 0 auto;min-width:0;margin-left:28px}
   .txn .dcol{order:5;flex:0 0 auto}
   .txn .acol{order:6;flex:1 1 auto;min-width:0;text-align:right}
-  .txn .inline-cat{order:7;flex:1 1 100%!important;width:100%!important;max-width:100%;margin-left:28px}
+  .txn .ic-slot{order:7;flex:1 1 100%!important;width:100%!important;max-width:100%;margin-left:28px}
   .txn .splitsum{order:7;flex:1 1 100%!important;width:100%!important;margin-left:28px}
 }
 
@@ -2073,31 +2081,17 @@ function renderTxnList(){
       <span class="dcol">${t.date}</span>
       <div class="desc"><b>${esc(t.description||"(no description)")}</b></div>
       <span class="acol" title="${esc(acctName(t.accountId))}">${esc(acctName(t.accountId))}</span>
-      ${inlineable?`<select class="inline-cat" style="flex:0 0 185px;width:185px;padding:5px 8px;font-size:.8rem;border-radius:8px">
-        ${isInc?`<optgroup label="Income streams">${incCats.map(c=>`<option value="${c.id}" ${inlineSel===c.id?"selected":""}>${esc(c.label)}</option>`).join("")}</optgroup>
-        <optgroup label="↩ Refund of an expense">${refundCats.map(c=>`<option value="${c.id}" ${inlineSel===c.id?"selected":""}>${esc(c.label)}</option>`).join("")}</optgroup>`
-        :`<option value="" ${!inlineSel?"selected":""}>Category…</option>
-        <optgroup label="Expense categories">${expCats.map(c=>`<option value="${c.id}" ${inlineSel===c.id?"selected":""}>${esc(c.label)}</option>`).join("")}</optgroup>`}
-        <option value="__newcat">+ New ${isInc?"income stream":"category"}…</option>
-        ${curRet?`<option value="${curRet.id}" selected>${esc(curRet.label)} (retired)</option>`:""}
-        <optgroup label="Not sure?">
-          <option value="__askcpa" ${inlineSel==="__askcpa"?"selected":""}>Ask My Accountant</option>
-        </optgroup>
-        <optgroup label="Not income or expense">
-          <option value="__transfer" ${staged==="__transfer"?"selected":""}>Transfer between my accounts</option>
-          ${isInc?"":`<option value="__ccpay">Credit card payment…</option>`}
-          ${isInc?"":`<option value="__draw" ${staged==="__draw"?"selected":""}>Owner draw / pay myself</option>`}
-        </optgroup>
-      </select>`:`<span class="splitsum" style="flex:0 0 185px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem;color:var(--muted)" title="${esc(splitCats)}">${esc(splitCats)}</span>`}
+      ${inlineable?`<span class="ic-slot" style="flex:0 0 185px;width:185px;min-width:0"></span>`:`<span class="splitsum" style="flex:0 0 185px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem;color:var(--muted)" title="${esc(splitCats)}">${esc(splitCats)}</span>`}
       <div class="amt ${t.bucketType==='income'?'in':''}">${t.bucketType==='income'?'+':''}${money(t.amount)}</div></div>`);
     row.querySelector("input").onchange=e=>{e.target.checked?TXN_SEL.add(t.id):TXN_SEL.delete(t.id);updateBulk();};
-    const inl=row.querySelector(".inline-cat");
-    if(inl)inl.onchange=e=>{
-      if(e.target.value==="__ccpay"){ e.target.value=inlineSel; ccPayModal(t); return; }
-      if(e.target.value==="__askcpa"){ e.target.value=inlineSel; askCpaNoteModal(t); return; }
-      if(e.target.value==="__newcat"){ e.target.value=inlineSel; catModal(t.bucketType==="income"?"income":null,(nc)=>applyInlinePick(t,nc.id)); return; }
-      if(e.target.value) applyInlinePick(t,e.target.value);   // instant save, row leaves the pile, undo in the toast
-    };
+    const slot=row.querySelector(".ic-slot");
+    if(slot) slot.appendChild(catCombo({value:inlineSel, placeholder:isInc?"Income stream…":"Category…", groups:()=>inlineCatGroups(t), styleWrap:"width:100%", onPick:c=>{
+      const v=c.id;
+      if(v==="__ccpay"){ ccPayModal(t); return; }
+      if(v==="__askcpa"){ askCpaNoteModal(t); return; }
+      if(v==="__newcat"){ catModal(t.bucketType==="income"?"income":null,(nc)=>applyInlinePick(t,nc.id)); return; }
+      applyInlinePick(t,v);   // instant save, row leaves the pile, undo in the toast
+    }}));
     row.querySelector(".desc").onclick=()=>txnModal(t);
     row.querySelector(".dcol").onclick=()=>txnModal(t);
     row.querySelector(".acol").onclick=()=>txnModal(t);
@@ -2111,10 +2105,10 @@ function renderTxnList(){
 function wireCatSearch(inp, groupsFn, onPick){
   let panel=null;
   const close=()=>{ if(panel){panel.remove();panel=null;} };
-  const open=()=>{
+  const open=(all)=>{
     close();
     if(inp.disabled)return;
-    const q=inp.value.trim().toLowerCase();
+    const q=all===true?"":inp.value.trim().toLowerCase();
     const groups=groupsFn()||[];
     panel=el(`<div class="catsug"></div>`);
     let any=false;
@@ -2132,8 +2126,8 @@ function wireCatSearch(inp, groupsFn, onPick){
     if(!any) panel.appendChild(el(`<div class="catsug-i" style="color:var(--muted);cursor:default">No matches</div>`));
     inp.parentElement.appendChild(panel);
   };
-  inp.addEventListener("input",open);
-  inp.addEventListener("focus",open);
+  inp.addEventListener("input",()=>open(false));
+  inp.addEventListener("focus",()=>{ if(inp.select)inp.select(); open(true); });
   inp.addEventListener("blur",()=>setTimeout(close,150));
 }
 /* inbox zero while a coached Money Date is running: celebrate, then walk
@@ -2389,6 +2383,57 @@ function acctName(id){const a=STATE.accounts.find(a=>a.id===id);return a?a.nickn
 
 /* One combined "What is it?" choice per split: picking a category answers
    the business question, so tag + category collapse into a single field. */
+/* THE pretty category picker (same look as bulk assign): a text input with
+   the grouped, searchable panel + the up/down affordance. Used by the row
+   pickers AND the transaction modal so every category field matches. */
+function catChoiceLabel(v){
+  if(!v)return "";
+  const m={__askcpa:"Ask My Accountant",__personal:"Personal, not the business's",__review:"Decide later (Needs Review)",__exclude:"Fully Excluded (never counts)",__include:"Always include",__transfer:"Transfer between my accounts",__draw:"Owner draw / pay myself",__ccpay:"Credit card payment…"};
+  if(m[v])return m[v];
+  const c=STATE.categories.find(x=>x.id===v);
+  return c? c.label+(c.retired?" (retired)":"") : "";
+}
+function catCombo(o){
+  const wrap=el(`<span style="position:relative;display:block;${o.styleWrap||""}">
+    <input type="text" autocomplete="off" placeholder="${esc(o.placeholder||"Choose what this is…")}" class="${o.inpClass||""}" style="width:100%;padding:6px 26px 6px 9px;font-size:.8rem;border-radius:8px">
+    <span style="position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);font-size:.75rem">⇅</span></span>`);
+  const inp=wrap.querySelector("input");
+  inp.value=catChoiceLabel(o.value)||"";
+  inp._label=inp.value;
+  wireCatSearch(inp, o.groups, c=>{ o.onPick(c); });
+  inp.addEventListener("blur",()=>setTimeout(()=>{ inp.value=inp._label; },170));
+  return wrap;
+}
+function inlineCatGroups(t){
+  const isInc=t.bucketType==="income";
+  const incCats=activeCats().filter(c=>c.schedC==="income");
+  const expCats=activeCats().filter(c=>c.schedC!=="income");
+  const g=[];
+  if(isInc){ g.push({label:"Income streams",items:incCats},{label:"↩ Refund of an expense",items:expCats.filter(c=>c.schedC!=="returns")}); }
+  else g.push({label:"Expense categories",items:expCats});
+  g.push({label:"Not sure?",items:[{id:"__askcpa",label:"Ask My Accountant"}]});
+  const nio=[{id:"__transfer",label:"Transfer between my accounts"}];
+  if(!isInc) nio.push({id:"__ccpay",label:"Credit card payment…"},{id:"__draw",label:"Owner draw / pay myself"});
+  g.push({label:"Not income or expense",items:nio});
+  g.push({label:"More",items:[{id:"__newcat",label:`+ New ${isInc?"income stream":"category"}…`}]});
+  return g;
+}
+function splitCatGroups(t,sp){
+  const isInc=t.bucketType==="income";
+  const incCats=activeCats().filter(c=>c.schedC==="income");
+  const expCats=activeCats().filter(c=>c.schedC!=="income");
+  const cur=splitChoiceCur(sp);
+  const g=[];
+  if(isInc){ g.push({label:"Income streams",items:incCats},{label:"↩ Refund of an expense",items:expCats.filter(c=>c.schedC!=="returns")}); }
+  else g.push({label:"Expense categories",items:expCats});
+  g.push({label:"Not sure?",items:[{id:"__askcpa",label:"Ask My Accountant"}]});
+  const nb=[{id:"__personal",label:"Personal, not the business's"},{id:"__review",label:"Decide later (Needs Review)"}];
+  if(cur==="__exclude")nb.push({id:"__exclude",label:"Fully Excluded (never counts)"});
+  if(cur==="__include")nb.push({id:"__include",label:"Always include"});
+  g.push({label:"Not business",items:nb});
+  g.push({label:"More",items:[{id:"__newcat",label:`+ New ${isInc?"income stream":"category"}…`}]});
+  return g;
+}
 function splitChoiceCur(sp){
   if(sp.tagState==="business")return sp.category||"";
   if(sp.tagState==="personal")return "__personal";
@@ -2494,19 +2539,20 @@ function txnModal(t){
       const needy=cur===""||cur==="__review";
       const r=el(`<div class="split-card${multi?"":" single"}">
         ${multi?`<div class="split-head"><b>Part ${i+1}</b><button type="button" class="btn sm ghost sp-del">✕ Remove</button></div>`:""}
-        <label class="fld"><span>${multi?"What is it?":"Category (or Personal / Decide later)"}</span><select class="sp-what ${needy?"attn":""}">${splitChoiceOpts(t,sp)}</select>
+        <label class="fld"><span>${multi?"What is it?":"Category (or Personal / Decide later)"}</span><span class="sp-what-slot"></span>
         ${needy?`<div class="attn-note">This is the call that sorts it. Pick one and it leaves the review pile on save.</div>`:""}</label>
         ${multi?`<div class="row">
           <label class="fld"><span>What / vendor (optional)</span><input type="text" class="sp-note" value="${esc(sp.note||"")}" placeholder="e.g. printer ink, Home Depot"></label>
           <label class="fld" style="flex:0 0 140px"><span>Amount</span><div class="cashwrap ${!sp.amount?"attn":""}"><span>$</span><input type="number" step="0.01" class="sp-amt" value="${sp.amount?Number(sp.amount).toFixed(2):""}" placeholder="0.00"></div></label>
         </div>`:""}
       </div>`);
-      r.querySelector(".sp-what").onchange=e=>{
-        if(e.target.value==="__newcat"){
+      r.querySelector(".sp-what-slot").appendChild(catCombo({value:cur||"", placeholder:"Choose what this is…", inpClass:needy?"attn":"", groups:()=>splitCatGroups(t,sp), styleWrap:"width:100%", onPick:c=>{
+        if(c.id==="__newcat"){
           catModal(t.bucketType==="income"?"income":null,(nc)=>{sp.tagState="business";sp.category=nc.id;renderSplits();updateAlloc();});
-          e.target.value=splitChoiceCur(sp); return;
+          return;
         }
-        applySplitChoice(sp,e.target.value);renderSplits();updateAlloc();};
+        applySplitChoice(sp,c.id); renderSplits(); updateAlloc();
+      }}));
       if(r.querySelector(".sp-amt")){
         r.querySelector(".sp-amt").oninput=e=>{sp.amount=parseFloat(e.target.value)||0;updateAlloc();e.target.closest(".cashwrap").classList.toggle("attn",!sp.amount);};
         r.querySelector(".sp-amt").onblur=e=>{const v=parseFloat(e.target.value);if(!isNaN(v))e.target.value=v.toFixed(2);};
@@ -3109,7 +3155,7 @@ function screenTaxes(s){
       }).join(""):`<div class="sub" style="padding:4px 0">No business expenses yet</div>`)
     + line("Total expenses",money0(totalExp),{top:true,bold:true,go:"expenses"})
     + line("Net profit",money0(yR.book),{top:true,bold:true,go:"all"})
-    + (yR.mileageMiles>0&&!yR.methodConflict?`<div class="tiny muted" style="padding:8px 0 0">🚗 Mileage tracked: ${yR.mileageMiles.toLocaleString()} mi ≈ ${money0(yR.mileageDeduction)} at ${Math.round(cfgT.mileageRatePerMile*100)}¢/mi · included in the est. taxable number</div>`:"");
+    + (yR.mileageMiles>0?`<div class="tiny muted" style="padding:8px 0 0">🚗 Mileage tracked: ${yR.mileageMiles.toLocaleString()} mi ≈ ${money0(yR.mileageDeduction)} at ${Math.round(cfgT.mileageRatePerMile*100)}¢/mi · ${yR.methodConflict?"info for your accountant only: your books already have actual car costs, and only one method counts":"not in the numbers above; it lowers Est. taxable on the Reports page"}</div>`:"");
   // every line opens a same-page popup with the transactions behind the number
   sc.querySelectorAll(".pl-row").forEach(r=>r.onclick=()=>{
     const go=r.dataset.go;
@@ -3166,7 +3212,7 @@ function mileModal(opts){
   opts=opts||{};
   const m=modal(`<h2>Log your trips</h2>
     <p class="small muted" style="margin-bottom:10px">One row per trip. Blank rows are skipped, so log the whole week in one go.</p>
-    <div style="display:flex;gap:8px;font-family:var(--font-head);font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">
+    <div class="ml-head" style="display:flex;gap:8px;font-family:var(--font-head);font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">
       <span style="flex:0 0 150px">Date</span><span style="flex:0 0 90px">Miles</span><span style="flex:1">Purpose</span><span style="flex:0 0 34px"></span></div>
     <div id="ml-rows"></div>
     <button type="button" class="btn ghost sm" id="ml-add" style="margin-top:6px">+ Another row</button>
@@ -3174,7 +3220,7 @@ function mileModal(opts){
   const sheet=m.o.querySelector(".sheet"); if(sheet)sheet.style.maxWidth="640px";
   const rows=$("#ml-rows",m.o);
   const addRow=()=>{
-    const r=el(`<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+    const r=el(`<div class="ml-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
       <input type="date" class="mlr-date" value="${todayISO()}" style="flex:0 0 150px">
       <input type="number" class="mlr-miles" inputmode="decimal" placeholder="0" style="flex:0 0 90px">
       <input type="text" class="mlr-purpose" placeholder="e.g. client meeting, supply run" style="flex:1;min-width:0">
