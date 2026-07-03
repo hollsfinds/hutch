@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04j -->
+<!-- build 2026-07-04k -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -1736,7 +1736,7 @@ function screenDash(s){
   t3.onclick=goPL; g1.appendChild(t3);
   const cpa=cpaTotal();
   const stack=el(`<div style="display:flex;flex-direction:column;gap:12px">
-    <div class="stat click" id="hm-cash" style="flex:1;padding:12px 16px"><div class="k" style="white-space:nowrap">Cash In vs Out - <span class="num">${yr}</span> so far</div>
+    <div class="stat click" id="hm-cash" style="flex:1;padding:12px 16px"><div class="k">Cash In vs Out - <span class="num">${yr}</span> so far</div>
       <div class="v ${ytd.cashFlow>=0?"":"neg"}" style="font-size:1.2rem">${money0(ytd.cashFlow)}</div>
       <div class="tiny muted">${moName} so far: <b style="color:${mtd.cashFlow>=0?"var(--ink)":"var(--bad)"}">${money0(mtd.cashFlow)}</b></div></div>
     <div class="stat click" id="hm-tax" style="flex:1;padding:12px 16px"><div class="k">${cpa!=null?`<span class="num">${yr}</span> Set-aside (CPA)`:`<span class="num">${yr}</span> Est. tax set-aside`}</div>
