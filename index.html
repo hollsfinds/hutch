@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04i -->
+<!-- build 2026-07-04j -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -356,8 +356,8 @@ html{touch-action:manipulation}
   /* mileage log: purpose gets a readable full-width line */
   .ml-head{display:none!important}
   .ml-row{flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:12px}
-  .ml-row .mlr-date{flex:0 1 auto!important;min-width:0;max-width:48%}
-  .ml-row .mlr-miles{flex:1 1 90px!important;min-width:70px}
+  .ml-row .mlr-date{flex:0 0 36%!important;min-width:0;max-width:36%;padding-left:6px;padding-right:2px}
+  .ml-row .mlr-miles{flex:1 1 0!important;min-width:0}
   .ml-row .mlr-purpose{flex:1 1 100%!important;order:5}
   .pl-solo{display:inline-block}
   /* reports P&L: label + only-visible number columns, hidden ones collapse */
@@ -4984,10 +4984,12 @@ function launchApp(){
   CURRENT="dash";
   try{
     const p=JSON.parse(localStorage.getItem("fft_page")||"null");
-    // quick reopen (under 30 min) = resume where you were; anything longer
-    // is a fresh visit and starts at Home for orientation (Holly's call)
-    const fresh=p&&p.ts&&(Date.now()-p.ts>30*60*1000);
-    if(!fresh&&p&&["dash","txns","accounts","taxes","reports","moneydate","settings"].includes(p.page)){
+    // SAME SESSION (tab-away, refresh, checking a text) = resume the page.
+    // sessionStorage survives those but dies on a full app close, so a real
+    // relaunch ALWAYS starts at Home (Holly's call).
+    const sameSession=(()=>{try{return sessionStorage.getItem("fft_alive")==="1";}catch(_){return false;}})();
+    try{ sessionStorage.setItem("fft_alive","1"); }catch(_){}
+    if(sameSession&&p&&["dash","txns","accounts","taxes","reports","moneydate","settings"].includes(p.page)){
       CURRENT=p.page;
       if(p.set)SET_TAB=p.set;
       if(p.acct)ACCT_TAB=p.acct;
