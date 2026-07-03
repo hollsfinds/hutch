@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04k -->
+<!-- build 2026-07-04l -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -334,6 +334,7 @@ html{touch-action:manipulation}
 .txn .amt.in{color:var(--good)}
 .txn input[type=checkbox]{width:18px;height:18px;flex:0 0 auto}
 .pl-solo{display:none}   /* phone-only: the P&L column selector's third pill */
+.dash-qa{display:none}   /* phone-only: Home quick actions */
 /* grouped type-to-search panel (bulk assign + any future category search):
    income streams and expenses NEVER blur together, each block wears a header */
 .catsug{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;max-width:340px;max-height:300px;overflow-y:auto;background:var(--white);border:1.5px solid var(--line);border-radius:10px;box-shadow:0 8px 26px rgba(34,58,78,.18);z-index:130;text-align:left}
@@ -360,6 +361,7 @@ html{touch-action:manipulation}
   .ml-row .mlr-miles{flex:1 1 0!important;min-width:0}
   .ml-row .mlr-purpose{flex:1 1 100%!important;order:5}
   .pl-solo{display:inline-block}
+  .dash-qa{display:flex}
   /* reports P&L: label + only-visible number columns, hidden ones collapse */
   #pl-body>div{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,auto)) !important;gap:6px !important;font-size:.82rem}
   .txn-sticky{position:static;margin-top:0;padding-top:0}
@@ -1708,7 +1710,14 @@ function screenDash(s){
     : ytd.book<0 ? "profit_neg"
     : "breakeven";
   s.appendChild(el(`<div class="talkback" style="margin-bottom:12px">${esc(talkback(tbKind))}</div>`));
-  // (quick-action buttons retired: the sidebar carries add/mileage/Money Date)
+  // PHONE ONLY: the sidebar is a drawer there, so the two most-used actions
+  // get front-door buttons (desktop keeps them in the always-visible sidebar)
+  const qa=el(`<div class="dash-qa" style="gap:8px;margin:0 0 14px">
+    <button class="btn coral sm" id="dq-add" style="flex:1;min-width:0">+ Manual Add (Inc/Exp)</button>
+    <button class="btn ghost sm" id="dq-miles" style="flex:1;min-width:0">🚗 Log mileage</button></div>`);
+  $("#dq-add",qa).onclick=()=>txnModal();
+  $("#dq-miles",qa).onclick=()=>mileModal();
+  s.appendChild(qa);
   // ---- BAND 1: How's the money? (every tile is a door) ----
   const sec1=el(`<div class="sec">How's the money? <button type="button" class="qhelp sm" data-help="profit" aria-label="What these numbers mean" style="text-transform:none;letter-spacing:0">?</button></div>`);
   sec1.querySelector(".qhelp").onclick=e=>{e.preventDefault();e.stopPropagation();helpModal("profit");};
