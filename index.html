@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-03t -->
+<!-- build 2026-07-03u -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -3548,10 +3548,19 @@ function resetPrompt(){
   };
 }
 async function resetApp(){
-  try{ if(_db) _db.close(); }catch(e){}
   try{ localStorage.removeItem("fft_theme"); }catch(e){}
   try{ localStorage.removeItem(OB_DRAFT_KEY); localStorage.removeItem("fft_page"); sessionStorage.removeItem("fft_sk"); }catch(_){}   // wizard draft + remembered page + session key go with it
-  await new Promise(res=>{ const req=indexedDB.deleteDatabase(DB_NAME); req.onsuccess=req.onerror=req.onblocked=()=>res(); });
+  // ERASE = clear the records, NOT deleteDatabase: iOS hangs forever on
+  // deleteDatabase + immediate reload (the blank-page bug). Same result,
+  // everything is gone, but the database stays answerable.
+  try{
+    if(!_db) await openDB();
+    await new Promise((res,rej)=>{ const rq=_db.transaction(STORE,"readwrite").objectStore(STORE).clear(); rq.onsuccess=()=>res(); rq.onerror=e=>rej(e); });
+  }catch(e){
+    // last resort: old path with a hard 1.5s cap so we can never hang here
+    try{ if(_db) _db.close(); }catch(_){}
+    await new Promise(res=>{ const req=indexedDB.deleteDatabase(DB_NAME); req.onsuccess=req.onerror=req.onblocked=()=>res(); setTimeout(res,1500); });
+  }
   location.reload();
 }
 
@@ -4911,7 +4920,19 @@ $("#resetfromlock").onclick=()=>resetPrompt();
 
 async function boot(){
   applyTheme(localStorage.getItem("fft_theme")||"light");
-  await openDB();
+  try{
+    await Promise.race([ openDB(), new Promise((_,rej)=>setTimeout(()=>rej(new Error("storage timeout")),6000)) ]);
+  }catch(e){
+    document.body.insertAdjacentHTML("beforeend",
+      `<div style="position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;padding:24px;z-index:999">
+        <div style="max-width:380px;text-align:center">
+          <div style="font-size:2rem;margin-bottom:8px">😅</div>
+          <h2 style="margin-bottom:8px">The storage is being shy</h2>
+          <p class="small muted" style="margin-bottom:14px">Your data is fine! The browser's storage just didn't answer. Close the app fully (swipe it away) and reopen it. If it keeps happening, restart your browser or phone.</p>
+          <button class="btn coral" onclick="location.reload()">Try again</button>
+        </div></div>`);
+    return;
+  }
   const rec=await idbGet(REC);
   const encVault = rec && rec.salt && rec.ct;         // encrypted (PIN) vault
   const plainVault = rec && rec.noPin && rec.plain;   // no-PIN (unencrypted) vault
