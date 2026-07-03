@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04m -->
+<!-- build 2026-07-04n -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -335,6 +335,9 @@ html{touch-action:manipulation}
 .txn input[type=checkbox]{width:18px;height:18px;flex:0 0 auto}
 .pl-solo{display:none}   /* phone-only: the P&L column selector's third pill */
 .dash-qa{display:none}   /* phone-only: Home quick actions */
+.ksub{display:inline}    /* phone: drops to its own line under the tile name */
+.kphone{display:none}    /* est-tax tile: trailing year is phone-only */
+@media(max-width:760px){ .ksub{display:block} .kphone{display:block} .kpre{display:none} }
 /* grouped type-to-search panel (bulk assign + any future category search):
    income streams and expenses NEVER blur together, each block wears a header */
 .catsug{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;max-width:340px;max-height:300px;overflow-y:auto;background:var(--white);border:1.5px solid var(--line);border-radius:10px;box-shadow:0 8px 26px rgba(34,58,78,.18);z-index:130;text-align:left}
@@ -1730,25 +1733,25 @@ function screenDash(s){
   const big=`display:flex;flex-direction:column;text-align:center;gap:6px`;
   const moName=now.toLocaleString("en-US",{month:"long"});
   const mtdInc=mtd.income-Math.abs(mtd.returns);
-  const t1=el(`<div class="stat click" style="${big}"><div class="k">Income - <span class="num">${yr}</span> so far</div>
+  const t1=el(`<div class="stat click" style="${big}"><div class="k">Income<span class="ksub"> - <span class="num">${yr}</span> so far</span></div>
     <div class="v ${totalInc>=0?"pos":"neg"}" style="font-size:2.6rem;margin:auto 0">${money0(totalInc)}</div>
     <div class="sub">${moName} so far: <b>${money0(mtdInc)}</b></div></div>`);
   t1.onclick=goReports; g1.appendChild(t1);
-  const t2=el(`<div class="stat click" style="${big}"><div class="k">Expenses - <span class="num">${yr}</span> so far</div>
+  const t2=el(`<div class="stat click" style="${big}"><div class="k">Expenses<span class="ksub"> - <span class="num">${yr}</span> so far</span></div>
     <div class="v" style="font-size:2.6rem;margin:auto 0">${money0(ytd.expenses)}</div>
     <div class="sub">${moName} so far: <b>${money0(mtd.expenses)}</b></div></div>`);
   t2.onclick=goReports; g1.appendChild(t2);
   const t3=el(`<div class="stat click ${warn?"reviewflag":""}" style="${big}">
-    <div class="k">Net Profit - <span class="num">${yr}</span> so far ${warn?"· needs review":""}</div>
+    <div class="k">Net Profit<span class="ksub"> - <span class="num">${yr}</span> so far</span> ${warn?"· needs review":""}</div>
     <div class="v ${ytd.book>=0?"pos":"neg"}" style="font-size:2.6rem;margin:auto 0">${money0(ytd.book)}</div>
     <div class="sub">${warn?`<b>${rc}</b> unreviewed, not final yet`:`${moName} so far: <b style="color:${mtd.book>=0?"var(--good)":"var(--bad)"}">${money0(mtd.book)}</b>`}</div></div>`);
   t3.onclick=goPL; g1.appendChild(t3);
   const cpa=cpaTotal();
   const stack=el(`<div style="display:flex;flex-direction:column;gap:12px">
-    <div class="stat click" id="hm-cash" style="flex:1;padding:12px 16px"><div class="k">Cash In vs Out - <span class="num">${yr}</span> so far</div>
+    <div class="stat click" id="hm-cash" style="flex:1;padding:12px 16px"><div class="k">Cash In vs Out<span class="ksub"> - <span class="num">${yr}</span> so far</span></div>
       <div class="v ${ytd.cashFlow>=0?"":"neg"}" style="font-size:1.2rem">${money0(ytd.cashFlow)}</div>
       <div class="tiny muted">${moName} so far: <b style="color:${mtd.cashFlow>=0?"var(--ink)":"var(--bad)"}">${money0(mtd.cashFlow)}</b></div></div>
-    <div class="stat click" id="hm-tax" style="flex:1;padding:12px 16px"><div class="k">${cpa!=null?`<span class="num">${yr}</span> Set-aside (CPA)`:`<span class="num">${yr}</span> Est. tax set-aside`}</div>
+    <div class="stat click" id="hm-tax" style="flex:1;padding:12px 16px"><div class="k">${cpa!=null?`<span class="kpre"><span class="num">${yr}</span> </span>Set-aside (CPA)<span class="ksub kphone"> - <span class="num">${yr}</span></span>`:`<span class="kpre"><span class="num">${yr}</span> </span>Est. tax set-aside<span class="ksub kphone"> - <span class="num">${yr}</span></span>`}</div>
       <div class="v" style="font-size:1.2rem">${money0(cpa!=null?cpa:setAside)}</div>
       ${cpa!=null?`<div class="tiny muted">Your CPA's quarterly total</div>`:""}</div>
   </div>`);
@@ -1768,7 +1771,7 @@ function screenDash(s){
   const g3=el(`<div class="grid3"></div>`);
   // (e) top expense categories: each row jumps to those transactions
   const cats=Object.entries(ytd.byCategory).sort((a,b)=>b[1]-a[1]).slice(0,4);
-  const tc=el(`<div class="stat"><div class="k">Top expenses - <span class="num">${yr}</span> so far</div>${
+  const tc=el(`<div class="stat"><div class="k">Top expenses<span class="ksub"> - <span class="num">${yr}</span> so far</span></div>${
     cats.length? cats.map(([c,v])=>`<div class="cat-row" data-cat="${esc(c)}" style="display:flex;justify-content:space-between;font-size:.9rem;margin-top:5px;cursor:pointer"><span style="text-decoration:underline;text-decoration-color:var(--line)">${esc(catLabel(c))}</span><b>${money0(v)}</b></div>`).join("")
     :`<div class="sub" style="margin-top:6px">No business expenses logged yet</div>`}</div>`);
   tc.querySelectorAll(".cat-row").forEach(r=>r.onclick=()=>{
@@ -1787,7 +1790,7 @@ function screenDash(s){
     }
   }
   const incTop=Object.entries(incBy).sort((a,b)=>b[1]-a[1]).slice(0,4);
-  const ti=el(`<div class="stat"><div class="k">Top income streams - <span class="num">${yr}</span> so far</div>${
+  const ti=el(`<div class="stat"><div class="k">Top income streams<span class="ksub"> - <span class="num">${yr}</span> so far</span></div>${
     incTop.length? incTop.map(([c,v])=>`<div class="inc-row" data-cat="${esc(c)}" style="display:flex;justify-content:space-between;font-size:.9rem;margin-top:5px;cursor:pointer"><span style="text-decoration:underline;text-decoration-color:var(--line)">${esc(catLabel(c))}</span><b>${money0(v)}</b></div>`).join("")
     :`<div class="sub" style="margin-top:6px">No income logged yet</div>`}</div>`);
   ti.querySelectorAll(".inc-row").forEach(r=>r.onclick=()=>{
@@ -1797,7 +1800,7 @@ function screenDash(s){
   g3.insertBefore(ti,tc);   // income leads, expenses second
   // (d) miles logged YTD
   const miYtd=STATE.mileage.filter(m=>inPeriod(m.date,{year:yr})).reduce((a,m)=>a+(Number(m.miles)||0),0);
-  const tm=el(`<div class="stat click" style="display:flex;flex-direction:column;text-align:center"><div class="k" style="text-align:left">Miles logged - <span class="num">${yr}</span> so far</div>
+  const tm=el(`<div class="stat click" style="display:flex;flex-direction:column;text-align:center"><div class="k" style="text-align:left">Miles logged<span class="ksub"> - <span class="num">${yr}</span> so far</span></div>
     <div class="v" style="font-size:2.4rem;margin:auto 0">${miYtd.toLocaleString()}<span style="font-size:1rem;font-weight:600;color:var(--muted)"> mi</span></div>
     <div class="sub">≈ ${money0(miYtd*cfgFor(yr).mileageRatePerMile)} on the tax view</div></div>`);
   tm.onclick=()=>{CURRENT="taxes";render();}; g3.appendChild(tm);
