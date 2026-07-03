@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-03s -->
+<!-- build 2026-07-03t -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -1194,19 +1194,10 @@ function setupIncomplete(){
   return !!(STATE.setupTracker&&STATE.setupTracker.skipped)
     && !(STATE.accounts.length && STATE.settings.moneyDate && STATE.settings.moneyDate.freq);
 }
-/* SMART TIME ESTIMATE for the Money Date. Two stages:
-   1) no history yet -> estimate from the actual workload (review pile size,
-      accounts needing imports, cash/miles steps enabled)
-   2) after 2+ finished dates -> median of the real measured durations
-   Durations are recorded finishMD-side; visits that span days (paused dates)
-   are filtered out so they can't pollute the estimate. */
+/* TIME ESTIMATE for the Money Date: honest arithmetic from the VISIBLE
+   workload (review pile size, accounts needing imports, cash/miles steps).
+   Nothing is timed or recorded; Holly's call, no stopwatch on the user. */
 function mdEstimate(){
-  const hist=STATE.mdHistory||[];
-  if(hist.length>=2){
-    const s=[...hist].sort((a,b)=>a-b);
-    const med=s[Math.floor(s.length/2)];
-    return Math.max(5, Math.round(med/5)*5);
-  }
   const rc=reviewQueueCount();
   const since=STATE.lastMoneyDate||0;
   const staleAccts=STATE.accounts.filter(a=>!STATE.transactions.some(t=>t.accountId===a.id&&(t.createdAt||0)>since)).length;
@@ -3524,6 +3515,7 @@ function migrate(st){ // schemaVersion hook for future migrations
   if(st.settings && st.settings.quarterly===undefined) st.settings.quarterly=true;
   if(st.settings && st.settings.moneyDate===undefined) st.settings.moneyDate=null;
   if(st.lastMoneyDate===undefined) st.lastMoneyDate=null;
+  delete st.mdHistory;   // timing feature removed 2026-07-03 (Holly's call); scrub old data
   if(st.mdProgress===undefined) st.mdProgress=null;
   if(st.settings && st.settings.tracksMiles===undefined) st.settings.tracksMiles=true;
   if(st.settings && st.settings.txnTab===undefined) st.settings.txnTab=null;
@@ -3676,7 +3668,6 @@ function screenMoneyDate(s){
   };
   const firstPending=stepDefs.findIndex(sd=>!isDone(sd));
   if(coachOn && firstPending>=0) MD_SESSION=true;
-  if(!p.startedAt && firstPending>=0){ p.startedAt=Date.now(); saveState(); }
   stepDefs.forEach((sd,i)=>{
     const done=isDone(sd);
     const isCur=i===firstPending;
@@ -3748,11 +3739,6 @@ function screenMoneyDate(s){
   if($("#mdw-miles",wt))$("#mdw-miles",wt).onclick=()=>mileModal({fromMD:true});
   async function finishMD(withBackup){
     const wasFirst=!STATE.lastMoneyDate;
-    const startedAt=STATE.mdProgress&&STATE.mdProgress.startedAt;
-    if(startedAt){
-      const mins=(Date.now()-startedAt)/60000;
-      if(mins>=1&&mins<=90){ if(!STATE.mdHistory)STATE.mdHistory=[]; STATE.mdHistory.push(Math.round(mins)); STATE.mdHistory=STATE.mdHistory.slice(-8); }
-    }
     MD_SESSION=false; MD_OPEN.clear();
     STATE.lastMoneyDate=Date.now();
     STATE.mdProgress=null;   // fresh checklist next cycle
