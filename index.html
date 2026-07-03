@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04f -->
+<!-- build 2026-07-04g -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -354,10 +354,10 @@ html{touch-action:manipulation}
   html,body{overscroll-behavior-x:none}
   #bulkbar{position:sticky;top:calc(var(--hdr,58px) + 6px);z-index:29;box-shadow:0 4px 14px rgba(34,58,78,.10)}
   /* mileage log: purpose gets a readable full-width line */
-  .ml-head{display:none}
+  .ml-head{display:none!important}
   .ml-row{flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:12px}
-  .ml-row .mlr-date{flex:1 1 0!important;min-width:0}
-  .ml-row .mlr-miles{flex:0 0 76px!important}
+  .ml-row .mlr-date{flex:0 1 auto!important;min-width:0;max-width:48%}
+  .ml-row .mlr-miles{flex:1 1 90px!important;min-width:70px}
   .ml-row .mlr-purpose{flex:1 1 100%!important;order:5}
   .pl-solo{display:inline-block}
   /* reports P&L: label + only-visible number columns, hidden ones collapse */
@@ -1988,7 +1988,8 @@ function screenTxns(s){
     else TXN_SEL.clear();
     renderTxnList();
   };
-  stick.appendChild(bar);
+  // bar placement happens after the deck is assembled (phone pulls it OUT
+  // of the deck so position:sticky has the whole page to stick within)
   const ARW=k=>TXN_SORT.key===k?(TXN_SORT.dir>0?" ▲":" ▼"):"";
   const hd=el(`<div class="txnhead">
     <span style="flex:0 0 18px"></span>
@@ -2007,6 +2008,8 @@ function screenTxns(s){
   });
   stick.appendChild(hd);
   s.appendChild(stick);
+  if(window.matchMedia&&window.matchMedia("(max-width:760px)").matches){ s.appendChild(bar); }
+  else { stick.insertBefore(bar,hd); }
   const list=el(`<div class="card" id="txnlist"></div>`); s.appendChild(list);
   renderTxnList();
 }
@@ -3039,7 +3042,7 @@ function screenTaxes(s){
   // one consistent shape on every line: fixed columns (⚠ | count | · | $amount)
   // so the numbers align vertically down the card
   const tally=(n,amt,warn)=>`<b style="display:grid;grid-template-columns:22px 30px 14px 112px;align-items:center;justify-items:end">
-    <span style="color:var(--warn)">${warn?"⚠":""}</span><span>${n||""}</span><span style="opacity:.45">${n?"·":""}</span><span>${n?money(amt):"—"}</span></b>`;
+    <span style="color:var(--warn)">${warn?"⚠":""}</span><span>${n||""}</span><span style="opacity:.45">${n?"·":""}</span><span>${n?money(amt):`<span style="color:var(--good)">✓</span>`}</span></b>`;
   const dc=el(`<div class="card"><h2>Double-Check Before Filing (${yT})</h2>
     <p class="small muted">I only look at your own data and ask questions. I never tell you something is deductible. That's your accountant's call. Tap a line to see the detail.</p>
     <div class="pl-row" data-go="__none" style="display:flex;justify-content:space-between;padding:6px;margin:0 -6px;border-radius:7px;border-bottom:1px solid var(--line);cursor:pointer"><span>Business items with no specific category ${uncategorized?`<button type="button" class="qhelp sm dc-why" data-why="uncat" aria-label="Why this matters">?</button>`:""}</span>${tally(uncategorized,uncatAmt)}</div>
