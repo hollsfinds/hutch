@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-03z -->
+<!-- build 2026-07-04a -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -351,6 +351,7 @@ html{touch-action:manipulation}
      Line 3: the category picker, full width. No more sideways scrolling. */
   .txnhead{display:none}
   html,body{overflow-x:clip}
+  #bulkbar{position:sticky;top:calc(var(--hdr,58px) + 6px);z-index:29;box-shadow:0 4px 14px rgba(34,58,78,.10)}
   .txn-sticky{position:static;margin-top:0;padding-top:0}
   .txn{flex-wrap:wrap;row-gap:5px;padding:11px 2px}
   .txn input[type=checkbox]{order:1}
@@ -1639,7 +1640,9 @@ function renderNav(){
 function closeDrawer(){ const sb=$("#sidebar"); if(sb)sb.classList.remove("open"); const ov=$("#sboverlay"); if(ov)ov.classList.remove("show"); }
 function openDrawer(){ $("#sidebar").classList.add("open"); $("#sboverlay").classList.add("show"); }
 let LAST_TAB=null;
-let MD_SESSION=false;   // a coached Money Date is mid-flight (session only)
+// a coached Money Date mid-flight is PERSISTED (survives app relaunch on
+// the phone); pause / coach-off / finish all clear it deliberately
+function mdCoachingActive(){ return !!(STATE&&STATE.mdProgress&&STATE.mdProgress.coaching); }
 let MD_OPEN=new Set();  // coach mode: completed steps the user tapped back open
 let TXN_SORT={key:"date",dir:-1};   // transaction table sort: any column, tap the header
 function render(){ renderNav(); const s=$("#screen"); s.innerHTML="";
@@ -1655,10 +1658,10 @@ function render(){ renderNav(); const s=$("#screen"); s.innerHTML="";
   }
   // COACH BAR: mid-Money-Date, every other screen shows the current step and
   // the way back so the hand never lets go
-  if(MD_SESSION && CURRENT!=="moneydate"){
+  if(mdCoachingActive() && CURRENT!=="moneydate"){
     const stat=mdStepsStatus();
     const idx=stat.findIndex(x=>!x.done);
-    if(idx<0) MD_SESSION=false;
+    if(idx<0){ STATE.mdProgress.coaching=false; saveState(); }
     else{
       const DIR={fresh:"bring in what's new",cash:"add any cash payments",review:"sort the pile: business, personal, or ask my accountant",miles:"log your business trips",backup:"make your backup",glance:"tap View reports to finish"};
       s.prepend(el(`<div class="card" style="background:color-mix(in srgb, var(--coral) 12%, var(--white));border:2px solid var(--coral);padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:26px;position:relative;z-index:31">
@@ -1666,7 +1669,7 @@ function render(){ renderNav(); const s=$("#screen"); s.innerHTML="";
         <button class="btn coral sm" id="mdbar-back" style="margin-left:auto;flex:0 0 auto">← Back to my date</button>
         <a href="#" id="mdbar-off" class="tiny" style="color:var(--muted);flex:0 0 auto">turn coaching off</a></div>`));
       $("#mdbar-back",s).onclick=()=>{CURRENT="moneydate";render();};
-      $("#mdbar-off",s).onclick=async e=>{e.preventDefault();STATE.settings.mdCoachAlways=false;MD_SESSION=false;await saveState();render();toast("Coach Mode off! Settings can bring it back.");};
+      $("#mdbar-off",s).onclick=async e=>{e.preventDefault();STATE.settings.mdCoachAlways=false;if(STATE.mdProgress)STATE.mdProgress.coaching=false;await saveState();render();toast("Coach Mode off! Settings can bring it back.");};
     }
   }
   // landing on a different tab always starts at the top of the page
@@ -2136,7 +2139,7 @@ function wireCatSearch(inp, groupsFn, onPick){
 /* inbox zero while a coached Money Date is running: celebrate, then walk
    the user straight back to their date so the glow can move on */
 function inboxZeroReturn(){
-  if(MD_SESSION && CURRENT!=="moneydate"){ CURRENT="moneydate"; render(); window.scrollTo(0,0); }
+  if(mdCoachingActive() && CURRENT!=="moneydate"){ CURRENT="moneydate"; render(); window.scrollTo(0,0); }
 }
 function updateBulk(){const bar=$("#bulkbar");if(!bar)return;
   const n=TXN_SEL.size;
@@ -3683,7 +3686,7 @@ function screenMoneyDate(s){
     glance:"The payoff! Everything above was for this. One tap opens your reports and officially wraps up your Money Date."
   };
   const firstPending=stepDefs.findIndex(sd=>!isDone(sd));
-  if(coachOn && firstPending>=0) MD_SESSION=true;
+  if(coachOn && firstPending>=0 && !p.coaching){ p.coaching=true; saveState(); }
   stepDefs.forEach((sd,i)=>{
     const done=isDone(sd);
     const isCur=i===firstPending;
@@ -3717,8 +3720,8 @@ function screenMoneyDate(s){
   wt.querySelectorAll(".md-tuck").forEach(b=>b.onclick=()=>{ MD_OPEN.delete(b.dataset.id); render(); });
   if(coachOn && firstPending>=0) wt.appendChild(el(`<p class="tiny" style="margin:12px 0 0;text-align:center"><a href="#" id="md-pause" style="color:var(--muted)">Need to stop? Pause my Money Date (everything is saved)</a> · <a href="#" id="md-coachoff" style="color:var(--muted)">Turn off Coach Mode</a></p>`));
   s.appendChild(wt);
-  if($("#md-pause",wt))$("#md-pause",wt).onclick=e=>{e.preventDefault();MD_SESSION=false;CURRENT="dash";render();toast("Paused! Everything is saved. Come back any time 💛");};
-  if($("#md-coachoff",wt))$("#md-coachoff",wt).onclick=async e=>{e.preventDefault();STATE.settings.mdCoachAlways=false;MD_SESSION=false;await saveState();render();toast("Coach Mode off! The compact checklist is all yours. Settings can bring it back.");};
+  if($("#md-pause",wt))$("#md-pause",wt).onclick=async e=>{e.preventDefault();if(STATE.mdProgress)STATE.mdProgress.coaching=false;await saveState();CURRENT="dash";render();toast("Paused! Everything is saved. Come back any time 💛");};
+  if($("#md-coachoff",wt))$("#md-coachoff",wt).onclick=async e=>{e.preventDefault();STATE.settings.mdCoachAlways=false;if(STATE.mdProgress)STATE.mdProgress.coaching=false;await saveState();render();toast("Coach Mode off! The compact checklist is all yours. Settings can bring it back.");};
   setTimeout(()=>{const n=document.getElementById("md-cur"); if(n)n.scrollIntoView({block:"center",behavior:"smooth"});},80);
   // first-ever Money Date: introduce the Coach ONCE before the walk begins
   if(coachOn && firstEverMD && firstPending>=0 && !STATE.settings.mdCoachIntroSeen){
@@ -3755,7 +3758,7 @@ function screenMoneyDate(s){
   if($("#mdw-miles",wt))$("#mdw-miles",wt).onclick=()=>mileModal({fromMD:true});
   async function finishMD(withBackup){
     const wasFirst=!STATE.lastMoneyDate;
-    MD_SESSION=false; MD_OPEN.clear();
+    MD_OPEN.clear();
     STATE.lastMoneyDate=Date.now();
     STATE.mdProgress=null;   // fresh checklist next cycle
     await saveState();
