@@ -4092,8 +4092,8 @@ function renderOB(){
   } else if(step==="pin"){
     inner=`<h1>${OB.data.userName?`Last step, ${esc(OB.data.userName)}`:"Last step"} 🔑</h1>
       <div class="card"><div class="warnbox">This PIN encrypts your data on this device. There's no reset. If you forget it, your backup file is the only way back in. So pick something you'll remember, and back up often.</div>
-      <label class="fld" style="margin-top:12px"><span>4–6 digit PIN</span><input type="password" inputmode="numeric" id="ob-pin" maxlength="6" placeholder="••••"></label>
-      <label class="fld"><span>Confirm PIN</span><input type="password" inputmode="numeric" id="ob-pin2" maxlength="6" placeholder="••••"></label></div>
+      <label class="fld" style="margin-top:12px"><span>4–6 digit PIN</span><input type="password" autocomplete="new-password" inputmode="numeric" id="ob-pin" maxlength="6" placeholder="••••"></label>
+      <label class="fld"><span>Confirm PIN</span><input type="password" autocomplete="new-password" inputmode="numeric" id="ob-pin2" maxlength="6" placeholder="••••"></label></div>
       <div class="row" style="margin-top:4px">
         <button class="btn ghost" id="ob-back" style="flex:0 0 38%">Back</button>
         <button class="btn coral" id="ob-finish">Complete! You are officially in business!</button></div>
@@ -4477,7 +4477,7 @@ $("#restorefromlock").onclick=()=>{
   const m=modal(`<h2>Restore from backup</h2>
     <div class="warnbox">Forgot your PIN? Your backup file is the way back. Upload it, then set a new PIN.</div>
     <label class="fld" style="margin-top:10px"><span>Backup file (.json)</span><input type="file" id="rf-file" accept=".json"></label>
-    <label class="fld"><span>New 4–6 digit PIN</span><input type="password" inputmode="numeric" id="rf-pin" maxlength="6"></label>
+    <label class="fld"><span>New 4–6 digit PIN</span><input type="password" autocomplete="new-password" inputmode="numeric" id="rf-pin" maxlength="6"></label>
     <button class="btn coral block" id="rf-go">Restore</button>`);
   let restored=null;
   $("#rf-file",m.o).onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
@@ -4495,8 +4495,8 @@ function changePinPrompt(){
   const adding=!_cryptoKey;
   const m=modal(`<h2>${adding?"Add a PIN":"Change PIN"}</h2>
     <div class="warnbox">${adding?"This encrypts your data on this device and adds a lock screen. There's no reset, so pick something you'll remember and back up after.":"New PIN re-encrypts your data. Make a fresh backup after, and don't forget the new one."}</div>
-    <label class="fld" style="margin-top:10px"><span>${adding?"":"New "}4–6 digit PIN</span><input type="password" inputmode="numeric" id="cp-pin" maxlength="6"></label>
-    <label class="fld"><span>Confirm</span><input type="password" inputmode="numeric" id="cp-pin2" maxlength="6"></label>
+    <label class="fld" style="margin-top:10px"><span>${adding?"":"New "}4–6 digit PIN</span><input type="password" autocomplete="new-password" inputmode="numeric" id="cp-pin" maxlength="6"></label>
+    <label class="fld"><span>Confirm</span><input type="password" autocomplete="new-password" inputmode="numeric" id="cp-pin2" maxlength="6"></label>
     <button class="btn coral block" id="cp-go">${adding?"Add PIN & encrypt":"Change PIN"}</button>`);
   $("#cp-go",m.o).onclick=async()=>{
     const a=$("#cp-pin",m.o).value,b=$("#cp-pin2",m.o).value;
