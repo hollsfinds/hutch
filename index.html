@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04p -->
+<!-- build 2026-07-04q -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -28,7 +28,7 @@
   /* Juney & Byrd v1 — light, bright, airy. --espresso = high-contrast
      foreground (navy) and --cream = background; both flip in dark mode. */
   --espresso:#223A4E; --espresso-2:#2c4a61;      /* Ink Navy (foreground) */
-  --cream:#FCFCFA; --cream-2:#E4EDE9;            /* Cloud page / Mist section */
+  --cream:#FCFCFA; --cream-2:#DEF0EC;            /* Cloud page / Mist section (teal-tint: ONE green family app-wide, matches the action buttons) */
   --coral:#F28C6A; --coral-dk:#dc744f; --coral-text:#4A1B0C;
   --peach:#F6CBAE; --sage:#9db08a; --sage-dk:#7d9268;
   --green:#2E9E8B; --teal:#2E9E8B;               /* Byrd Green */
@@ -339,7 +339,8 @@ html{touch-action:manipulation}
 .dq-mint:hover{background:color-mix(in srgb, var(--teal) 26%, var(--white))}
 .ksub{display:inline}    /* phone: drops to its own line under the tile name */
 .kphone{display:none}    /* est-tax tile: trailing year is phone-only */
-@media(max-width:760px){ .ksub{display:block} .kphone{display:block} .kpre{display:none} }
+#hm-cash .k{white-space:nowrap;font-size:.7rem}   /* longest tile title: one line on desktop */
+@media(max-width:760px){ .ksub{display:block} .kphone{display:block} .kpre{display:none} #hm-cash .k{white-space:normal;font-size:.76rem} }
 /* grouped type-to-search panel (bulk assign + any future category search):
    income streams and expenses NEVER blur together, each block wears a header */
 .catsug{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;max-width:340px;max-height:300px;overflow-y:auto;background:var(--white);border:1.5px solid var(--line);border-radius:10px;box-shadow:0 8px 26px rgba(34,58,78,.18);z-index:130;text-align:left}
