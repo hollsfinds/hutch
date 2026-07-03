@@ -327,6 +327,28 @@ html{touch-action:manipulation}
 .txnhead{display:flex;align-items:center;gap:10px;padding:7px 26px 5px;font-family:var(--font-head);font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .txn .amt.in{color:var(--good)}
 .txn input[type=checkbox]{width:18px;height:18px;flex:0 0 auto}
+/* CSV import column-mapping: one aligned grid, selects share a baseline */
+.maprow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.maprow .fld{display:flex;flex-direction:column;margin-bottom:0;min-width:0}
+.maprow .fld span{flex:1}
+.maprow select{margin-top:auto;width:100%;min-width:0}
+@media(max-width:760px){
+  .maprow{grid-template-columns:1fr 1fr}
+  /* PHONE TRANSACTIONS: rows become 3-line cards instead of a wide table.
+     Line 1: checkbox + description + amount. Line 2: status, date, account.
+     Line 3: the category picker, full width. No more sideways scrolling. */
+  .txnhead{display:none}
+  .txn-sticky{position:static;margin-top:0;padding-top:0}
+  .txn{flex-wrap:wrap;row-gap:5px;padding:11px 2px}
+  .txn input[type=checkbox]{order:1}
+  .txn .desc{order:2;flex:1 1 0;min-width:0}
+  .txn .amt{order:3;flex:0 0 auto;min-width:0}
+  .txn .tagcol{order:4;flex:0 0 auto;min-width:0;margin-left:28px}
+  .txn .dcol{order:5;flex:0 0 auto}
+  .txn .acol{order:6;flex:1 1 auto;min-width:0;text-align:right}
+  .txn .inline-cat{order:7;flex:1 1 100%!important;width:100%!important;max-width:100%;margin-left:28px}
+  .txn .splitsum{order:7;flex:1 1 100%!important;width:100%!important;margin-left:28px}
+}
 
 /* modal: work panels slide in from the RIGHT (full height, nothing feels
    cut off); small dialogs (.center) stay centered */
@@ -1589,9 +1611,26 @@ function renderNav(){
 function closeDrawer(){ const sb=$("#sidebar"); if(sb)sb.classList.remove("open"); const ov=$("#sboverlay"); if(ov)ov.classList.remove("show"); }
 function openDrawer(){ $("#sidebar").classList.add("open"); $("#sboverlay").classList.add("show"); }
 let LAST_TAB=null;
+let MD_SESSION=false;   // a coached Money Date is mid-flight (session only)
 function render(){ renderNav(); const s=$("#screen"); s.innerHTML="";
   ({dash:screenDash,txns:screenTxns,accounts:screenAccounts,taxes:screenTaxes,
     reports:screenReports,moneydate:screenMoneyDate,settings:screenSettings}[CURRENT]||screenDash)(s);
+  // COACH BAR: mid-Money-Date, every other screen shows the current step and
+  // the way back so the hand never lets go
+  if(MD_SESSION && CURRENT!=="moneydate"){
+    const stat=mdStepsStatus();
+    const idx=stat.findIndex(x=>!x.done);
+    if(idx<0) MD_SESSION=false;
+    else{
+      const DIR={fresh:"bring in what's new",cash:"add any cash payments",review:"sort the pile: business, personal, or ask my accountant",miles:"log your business trips",backup:"make your backup",glance:"tap View reports to finish"};
+      s.prepend(el(`<div class="card" style="background:color-mix(in srgb, var(--coral) 12%, var(--white));border:2px solid var(--coral);padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="small" style="min-width:0"><b style="font-family:var(--font-head)">💛 Money Date · step ${idx+1} of ${stat.length}:</b> ${DIR[stat[idx].id]||stat[idx].title}, then head back!</span>
+        <button class="btn coral sm" id="mdbar-back" style="margin-left:auto;flex:0 0 auto">← Back to my date</button>
+        <a href="#" id="mdbar-off" class="tiny" style="color:var(--muted);flex:0 0 auto">turn coaching off</a></div>`));
+      $("#mdbar-back",s).onclick=()=>{CURRENT="moneydate";render();};
+      $("#mdbar-off",s).onclick=async e=>{e.preventDefault();STATE.settings.mdCoachAlways=false;MD_SESSION=false;await saveState();render();toast("Coach Mode off! Settings can bring it back.");};
+    }
+  }
   // landing on a different tab always starts at the top of the page
   if(CURRENT!==LAST_TAB){ window.scrollTo(0,0); LAST_TAB=CURRENT; }
   // remember where you are (page + sub-tabs) so a refresh puts you right back
@@ -1880,7 +1919,7 @@ function screenTxns(s){
     <label class="small" style="display:flex;gap:7px;align-items:center;margin:0;cursor:pointer;color:var(--muted)"><input type="checkbox" id="selall" style="width:17px;height:17px;flex:0 0 auto">Select all (<span id="sa-n">0</span>)</label>
     <b id="bulkn" class="small"></b>
     <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;align-items:center">
-      <select id="bulkcat" class="hidden" style="width:300px;padding:8px 10px;font-size:.85rem;border-radius:9px">
+      <select id="bulkcat" class="hidden" style="width:300px;max-width:100%;padding:8px 10px;font-size:.85rem;border-radius:9px">
         <option value="" selected>Assign one category…</option>
         ${activeCats().filter(c=>c.schedC!=="income").map(c=>`<option value="${c.id}">${esc(c.label)}</option>`).join("")}
       </select>
@@ -1960,11 +1999,11 @@ function renderTxnList(){
     const splitCats=multi?[...new Set(t.splits.map(sp=>catLabel(sp.category)))].join(", "):"";
     const incCats=activeCats().filter(c=>c.schedC==="income");
     const expCats=activeCats().filter(c=>c.schedC!=="income");
-    const curRet=STATE.categories.find(c=>c.id===inlineSel&&c.retired);
     // money-in is never a Customer Refund: vendor/material returns go to the
     // ORIGINAL expense category instead (Holly's rule)
     const refundCats=expCats.filter(c=>c.schedC!=="returns");
     const inlineSel=staged||(primary.tagState==="ask_cpa"?"__askcpa":(primary.category||(isInc?"income":"")));
+    const curRet=STATE.categories.find(c=>c.id===inlineSel&&c.retired);
     const row=el(`<div class="txn">
       <input type="checkbox" ${TXN_SEL.has(t.id)?"checked":""}>
       <span class="tagcol">${multi?`<span class="tag include">split ×${t.splits.length}</span>`:`<span class="tag ${TAG_STATES[primary.tagState].cls}">${TAG_STATES[primary.tagState].label}</span>`}</span>
@@ -1986,7 +2025,7 @@ function renderTxnList(){
           ${isInc?"":`<option value="__ccpay">Credit card payment…</option>`}
           ${isInc?"":`<option value="__draw" ${staged==="__draw"?"selected":""}>Owner draw / paying myself</option>`}
         </optgroup>
-      </select>`:`<span style="flex:0 0 185px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem;color:var(--muted)" title="${esc(splitCats)}">${esc(splitCats)}</span>`}
+      </select>`:`<span class="splitsum" style="flex:0 0 185px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem;color:var(--muted)" title="${esc(splitCats)}">${esc(splitCats)}</span>`}
       <div class="amt ${t.bucketType==='income'?'in':''}">${t.bucketType==='income'?'+':''}${money(t.amount)}</div></div>`);
     row.querySelector("input").onchange=e=>{e.target.checked?TXN_SEL.add(t.id):TXN_SEL.delete(t.id);updateBulk();};
     const inl=row.querySelector(".inline-cat");
@@ -2433,10 +2472,10 @@ function parseCSVPreview(text,wrap,acctId,m){
   const opt=(sel)=>headers.map((h,i)=>`<option value="${i}" ${sel===i?"selected":""}>${esc(h)}</option>`).join("");
   const host=$("#i-map",wrap);
   host.innerHTML=`<div class="card" style="padding:12px">
-    <div class="row"><label class="fld"><span>Date column</span><select id="m-date">${opt(map.date)}</select></label>
+    <div class="maprow"><label class="fld"><span>Date</span><select id="m-date">${opt(map.date)}</select></label>
     <label class="fld"><span>Description</span><select id="m-desc">${opt(map.desc)}</select></label>
     <label class="fld"><span>Amount (or Debit)</span><select id="m-amt">${opt(map.amount)}</select></label>
-    <label class="fld"><span>Credit column (if separate)</span><select id="m-credit"><option value="-1" ${map.credit<0?"selected":""}>Not separate</option>${opt(map.credit)}</select></label></div>
+    <label class="fld"><span>Credit (if separate)</span><select id="m-credit"><option value="-1" ${map.credit<0?"selected":""}>Not separate</option>${opt(map.credit)}</select></label></div>
     <div style="margin-top:2px"><b class="small" style="font-family:var(--font-head)">Here's how I'll read your file <button type="button" class="qhelp sm" data-help="imports" aria-label="How importing works">?</button></b>
       <div id="m-preview" style="margin-top:6px"></div>
       <button type="button" class="btn ghost sm" id="m-swap" style="margin-top:8px">Backwards? Swap money in / money out</button></div>
@@ -3414,23 +3453,47 @@ function screenMoneyDate(s){
     <div class="progress" style="margin:10px 0 14px"><i style="width:${Math.round(doneCount/stepDefs.length*100)}%"></i></div>
     <div id="mdw-steps"></div></div>`);
   const stepsHost=$("#mdw-steps",wt);
-  // FIRST Money Date = maximum hand-holding: the current step glows coral
-  // with a DO THIS NOW badge, later steps dim until it's their turn
+  // EVERY Money Date: the current step glows coral with a DO THIS NOW badge
+  // and later steps dim until it's their turn. COACH MODE (first date ever, or
+  // the "coach me every time" setting) goes further: one step at a time with
+  // extra plain-English directions; everything else collapses out of the way.
+  const coachOn = STATE.settings.mdCoachAlways===true || (firstEverMD && STATE.settings.mdCoachAlways!==false);
+  const COACH_TXT={
+    fresh:"Why this is first: every number in this app is built from this list. Tap an account, pull in anything new (import its CSV or add by hand), and its stamp flips to added. Green stamps all around = tick the box!",
+    cash:"Cash counts even without a bank record! Anyone pay you in cash since last time? Add it now. Nothing? Tick the box and cruise on.",
+    review:"The sorting moment! Every new transaction waits in one pile until you call it: business, personal, or ask my accountant. Your profit number is literally made of these answers, so this is the most important two minutes of the whole date.",
+    miles:"Business miles are money. Client visits, supply runs, post office trips. Log them while you still remember where you went!",
+    backup:"Your books live ONLY on this device, so the backup file is the entire safety net. One tap makes the file, you pick where it lands. Future you says thank you!",
+    glance:"The payoff! Everything above was for this. One tap opens your reports and officially wraps up your Money Date."
+  };
   const firstPending=stepDefs.findIndex(sd=>!isDone(sd));
+  if(coachOn && firstPending>=0) MD_SESSION=true;
   stepDefs.forEach((sd,i)=>{
     const done=isDone(sd);
-    const isCur=firstEverMD && i===firstPending;
-    const isFuture=firstEverMD && !done && firstPending>=0 && i>firstPending;
+    const isCur=i===firstPending;
+    const isFuture=!done && firstPending>=0 && i>firstPending;
+    if(coachOn && !isCur){
+      // collapsed row: number/check + title only, current step keeps the focus
+      stepsHost.appendChild(el(`<div style="display:flex;gap:11px;align-items:center;padding:9px 0;${i<stepDefs.length-1?"border-bottom:1px solid var(--line);":""}${isFuture?"opacity:.45;":""}">
+        <div style="flex:0 0 26px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;font-family:var(--font-head);${done?"background:var(--good);color:#fff":"background:var(--cream-2);color:var(--muted)"}">${done?"✓":i+1}</div>
+        <b style="font-family:var(--font-head);${done?"color:var(--muted)":""}">${sd.title}</b>${done?"":`<span class="tiny muted" style="margin-left:auto;flex:0 0 auto">up next</span>`}
+      </div>`));
+      return;
+    }
     stepsHost.appendChild(el(`<div ${isCur?`id="md-cur"`:""} style="display:flex;gap:11px;padding:11px 0;${isCur?"background:color-mix(in srgb, var(--coral) 12%, var(--white));border:2px solid var(--coral);border-radius:14px;padding:12px;margin:8px -12px;":i<stepDefs.length-1?"border-bottom:1px solid var(--line);":""}${isFuture?"opacity:.45;":""}">
       <div style="flex:0 0 26px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;font-family:var(--font-head);${done?"background:var(--good);color:#fff":isCur?"background:var(--coral);color:var(--coral-text)":"background:var(--cream-2);color:var(--muted)"}">${done?"✓":i+1}</div>
       <div style="flex:1;min-width:0">
         <b style="font-family:var(--font-head)${done?";color:var(--muted)":""}">${sd.title}</b>${isCur?`<span style="display:inline-block;background:var(--coral);color:var(--coral-text);border-radius:99px;padding:2px 10px;margin-left:8px;font-size:.66rem;font-weight:700;font-family:var(--font-head);letter-spacing:.04em;vertical-align:middle">👉 DO THIS NOW</span>`:""}
+        ${coachOn&&isCur&&COACH_TXT[sd.id]?`<p class="small" style="margin:6px 0 2px">${COACH_TXT[sd.id]}</p>`:""}
         <div style="margin-top:4px">${sd.body}</div>
         ${sd.auto?"":(sd.detect&&!p.done.includes(sd.id)?`<div class="tiny" style="margin-top:8px;color:var(--good)">✓ ${sd.detectNote}</div>`:`<label class="tiny" style="display:flex;gap:7px;align-items:center;margin-top:8px;color:var(--muted);cursor:pointer"><input type="checkbox" class="mdw-ck" data-id="${sd.id}" ${done?"checked":""} style="width:16px;height:16px;flex:0 0 auto">${sd.check}</label>`)}
       </div></div>`));
   });
+  if(coachOn && firstPending>=0) wt.appendChild(el(`<p class="tiny" style="margin:12px 0 0;text-align:center"><a href="#" id="md-pause" style="color:var(--muted)">Need to stop? Pause my Money Date (everything is saved)</a> · <a href="#" id="md-coachoff" style="color:var(--muted)">Turn off Coach Mode</a></p>`));
   s.appendChild(wt);
-  if(firstEverMD) setTimeout(()=>{const n=document.getElementById("md-cur"); if(n)n.scrollIntoView({block:"center",behavior:"smooth"});},80);
+  if($("#md-pause",wt))$("#md-pause",wt).onclick=e=>{e.preventDefault();MD_SESSION=false;CURRENT="dash";render();toast("Paused! Everything is saved. Come back any time 💛");};
+  if($("#md-coachoff",wt))$("#md-coachoff",wt).onclick=async e=>{e.preventDefault();STATE.settings.mdCoachAlways=false;MD_SESSION=false;await saveState();render();toast("Coach Mode off! The compact checklist is all yours. Settings can bring it back.");};
+  setTimeout(()=>{const n=document.getElementById("md-cur"); if(n)n.scrollIntoView({block:"center",behavior:"smooth"});},80);
   $("#md-gosettings",wt).onclick=e=>{e.preventDefault();CURRENT="settings";render();};
   // tapping an account = "bring in its new stuff" -> import, pre-set to that account
   wt.querySelectorAll(".md-acct").forEach(b=>b.onclick=()=>importModal(b.dataset.id));
@@ -3454,6 +3517,8 @@ function screenMoneyDate(s){
   if($("#mdw-review",wt))$("#mdw-review",wt).onclick=()=>{TXN_FILTER.tag="review";CURRENT="txns";render();};
   if($("#mdw-miles",wt))$("#mdw-miles",wt).onclick=()=>mileModal({fromMD:true});
   async function finishMD(withBackup){
+    const wasFirst=!STATE.lastMoneyDate;
+    MD_SESSION=false;
     STATE.lastMoneyDate=Date.now();
     STATE.mdProgress=null;   // fresh checklist next cycle
     await saveState();
@@ -3462,7 +3527,15 @@ function screenMoneyDate(s){
     const body= left? `${opener} ${left} transaction${left>1?"s":""} still need${left>1?"":"s"} sorting when you get a minute.` : esc(talkback("clean"));
     const skipNote= withBackup? "" : `<br><span class="small muted">Backup skipped this time. I'll keep the nudge on your to-do list.</span>`;
     CURRENT="reports"; render(); window.scrollTo(0,0);   // the reward IS the finish line
-    party("Money Date done!", `${body}${skipNote}<br><span class="small muted">Here are your numbers. See you next time${userName()?", "+esc(userName()):""}. 💛</span>`);
+    party("Money Date done!", `${body}${skipNote}<br><span class="small muted">Here are your numbers. See you next time${userName()?", "+esc(userName()):""}. 💛</span>`, (wasFirst&&STATE.settings.mdCoachAlways!==false)?()=>{
+      // first date only: does the coaching stay on?
+      const m=modal(`<h2>Keep the training wheels?</h2>
+        <p class="small">That guided, one-step-at-a-time walk-through can run on EVERY Money Date, or I can hand you the compact checklist now that you know the loop. Flip it any time in Settings under Money Date schedule.</p>
+        <button class="btn coral block" id="coach-yes" style="margin-top:6px">Yes! Coach me every time</button>
+        <button class="btn ghost block" id="coach-no" style="margin-top:8px">I've got it from here</button>`);
+      $("#coach-yes",m.o).onclick=async()=>{STATE.settings.mdCoachAlways=true;await saveState();m.close();toast("Deal! Guided mode every time 💛");};
+      $("#coach-no",m.o).onclick=async()=>{STATE.settings.mdCoachAlways=false;await saveState();m.close();toast("Look at you, all grown up! Settings has it if you change your mind.");};
+    }:null);
   }
   const markBackup=async()=>{ if(!p.done.includes("backup"))p.done.push("backup"); await saveState(); };
   // step 5: back up (or explicitly skip). Neither closes the Money Date.
@@ -3589,7 +3662,11 @@ function screenSettings(s){
         ${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${String(mdS.dom)===String(i+1)?"selected":""}>${i+1}</option>`).join("")}
         <option value="last" ${mdS.dom==="last"?"selected":""}>Last day</option></select></label>
     </div>
-    <p class="tiny muted" style="margin:0">${mdS.freq?`We meet ${mdLabel(mdS)}. Next one: <b>${mdNxt?isoLocal(mdNxt):""}</b>${STATE.lastMoneyDate?` · last done ${new Date(STATE.lastMoneyDate).toLocaleDateString()}`:""}`:"Pick a rhythm and I'll remind you on your to-do list and calendar!"}</p></div>`);
+    <p class="tiny muted" style="margin:0">${mdS.freq?`We meet ${mdLabel(mdS)}. Next one: <b>${mdNxt?isoLocal(mdNxt):""}</b>${STATE.lastMoneyDate?` · last done ${new Date(STATE.lastMoneyDate).toLocaleDateString()}`:""}`:"Pick a rhythm and I'll remind you on your to-do list and calendar!"}</p>
+    <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:12px;cursor:pointer">
+      <input type="checkbox" id="md-coach" ${st.mdCoachAlways?"checked":""} style="width:17px;height:17px;flex:0 0 auto">
+      Coach me through every Money Date (one step at a time, with extra directions)
+    </label></div>`);
   s.appendChild(rhythm);
   const saveRhythm=async()=>{
     const f=$("#md-freq",rhythm).value, dw=$("#md-dow",rhythm).value, dm=$("#md-dom",rhythm).value;
@@ -3602,6 +3679,7 @@ function screenSettings(s){
     await saveState(); toast("Saved"); render();
   };
   ["#md-freq","#md-dow","#md-dom"].forEach(id=>{$(id,rhythm).onchange=saveRhythm;});
+  $("#md-coach",rhythm).onchange=async e=>{STATE.settings.mdCoachAlways=e.target.checked;await saveState();toast(e.target.checked?"Guided mode on for every date!":"Back to the compact checklist");};
   }
 
   if(show("look")){
