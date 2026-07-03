@@ -335,7 +335,11 @@ main .wrap{max-width:980px}
 .sheet{background:var(--cream);width:100%;max-width:560px;height:auto;max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overflow-y:auto;border-radius:20px;padding:22px 20px calc(24px + env(safe-area-inset-bottom));animation:sheetIn .18s ease;box-shadow:0 10px 40px rgba(34,58,78,.25)}
 @keyframes sheetIn{from{transform:translateX(28px);opacity:.5}to{transform:none;opacity:1}}
 .overlay.center .sheet{border-radius:20px;height:auto;max-height:92vh;animation:none}
-@media(max-width:760px){ .overlay{padding:10px} .sheet{max-width:100%} }
+@media(max-width:760px){
+  /* phones: drawers clear the notch/status bar and center themselves */
+  .overlay{padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));align-items:center;justify-content:center}
+  .sheet{max-width:100%;max-height:calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+}
 .sheet h2{margin-bottom:14px;padding-right:36px}   /* never collide with the close x */
 .sheet-x{position:absolute;top:14px;right:16px;font-size:1.4rem;color:var(--muted);background:none}
 
