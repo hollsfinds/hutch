@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<!-- build 2026-07-04e -->
+<!-- build 2026-07-04f -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="theme-color" content="#FCFCFA">
@@ -333,6 +333,7 @@ html{touch-action:manipulation}
 .txnhead{display:flex;align-items:center;gap:10px;padding:7px 26px 5px;font-family:var(--font-head);font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .txn .amt.in{color:var(--good)}
 .txn input[type=checkbox]{width:18px;height:18px;flex:0 0 auto}
+.pl-solo{display:none}   /* phone-only: the P&L column selector's third pill */
 /* grouped type-to-search panel (bulk assign + any future category search):
    income streams and expenses NEVER blur together, each block wears a header */
 .catsug{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;max-width:340px;max-height:300px;overflow-y:auto;background:var(--white);border:1.5px solid var(--line);border-radius:10px;box-shadow:0 8px 26px rgba(34,58,78,.18);z-index:130;text-align:left}
@@ -350,14 +351,15 @@ html{touch-action:manipulation}
      Line 1: checkbox + description + amount. Line 2: status, date, account.
      Line 3: the category picker, full width. No more sideways scrolling. */
   .txnhead{display:none}
-  html,body{overflow-x:clip}
+  html,body{overscroll-behavior-x:none}
   #bulkbar{position:sticky;top:calc(var(--hdr,58px) + 6px);z-index:29;box-shadow:0 4px 14px rgba(34,58,78,.10)}
   /* mileage log: purpose gets a readable full-width line */
   .ml-head{display:none}
-  .ml-row{flex-wrap:wrap}
-  .ml-row .mlr-date{flex:1 1 auto!important;min-width:0}
-  .ml-row .mlr-miles{flex:0 0 84px!important}
+  .ml-row{flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:12px}
+  .ml-row .mlr-date{flex:1 1 0!important;min-width:0}
+  .ml-row .mlr-miles{flex:0 0 76px!important}
   .ml-row .mlr-purpose{flex:1 1 100%!important;order:5}
+  .pl-solo{display:inline-block}
   /* reports P&L: label + only-visible number columns, hidden ones collapse */
   #pl-body>div{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,auto)) !important;gap:6px !important;font-size:.82rem}
   .txn-sticky{position:static;margin-top:0;padding-top:0}
@@ -1653,6 +1655,7 @@ let LAST_TAB=null;
 function mdCoachingActive(){ return !!(STATE&&STATE.mdProgress&&STATE.mdProgress.coaching); }
 let MD_OPEN=new Set();  // coach mode: completed steps the user tapped back open
 let TXN_SORT={key:"date",dir:-1};   // transaction table sort: any column, tap the header
+let PL_ONLY="book";   // phone P&L shows ONE money column at a time (no room for three)
 function render(){ renderNav(); const s=$("#screen"); s.innerHTML="";
   ({dash:screenDash,txns:screenTxns,accounts:screenAccounts,taxes:screenTaxes,
     reports:screenReports,moneydate:screenMoneyDate,settings:screenSettings}[CURRENT]||screenDash)(s);
@@ -3042,7 +3045,7 @@ function screenTaxes(s){
     <div class="pl-row" data-go="__none" style="display:flex;justify-content:space-between;padding:6px;margin:0 -6px;border-radius:7px;border-bottom:1px solid var(--line);cursor:pointer"><span>Business items with no specific category ${uncategorized?`<button type="button" class="qhelp sm dc-why" data-why="uncat" aria-label="Why this matters">?</button>`:""}</span>${tally(uncategorized,uncatAmt)}</div>
     <div class="pl-row" data-go="personal" style="display:flex;justify-content:space-between;padding:6px;margin:0 -6px;border-radius:7px;border-bottom:1px solid var(--line);cursor:pointer"><span>Expenses you marked personal</span>${tally(personalBiz,persAmt)}</div>
     <div class="pl-row" data-go="askcpa" style="display:flex;justify-content:space-between;padding:6px;margin:0 -6px;border-radius:7px;border-bottom:1px solid var(--line);cursor:pointer"><span>Waiting on Ask My Accountant</span>${tally(askN,yR.askCpa)}</div>
-    <div class="pl-row" data-go="sched:car_truck" style="display:flex;justify-content:space-between;padding:6px;margin:0 -6px;border-radius:7px;cursor:pointer"><span>Logged miles AND coded car expenses (${yT}) ${yR.methodConflict?`<button type="button" class="qhelp sm dc-why" data-why="miles" aria-label="Why this matters">?</button>`:""}</span>${yR.methodConflict?tally(carN,yR.carExpenses,true):tally(0,0)}</div>
+    <div class="pl-row" data-go="sched:car_truck" style="display:flex;justify-content:space-between;padding:6px;margin:0 -6px;border-radius:7px;cursor:pointer"><span>Logged miles AND coded car expenses ${yR.methodConflict?`<button type="button" class="qhelp sm dc-why" data-why="miles" aria-label="Why this matters">?</button>`:""}</span>${yR.methodConflict?tally(carN,yR.carExpenses,true):tally(0,0)}</div>
     ${!uncategorized&&!yR.methodConflict?`<p class="small infobox" style="margin-top:8px">Nothing flagged. Tidy books! 🎉</p>`:""}
     <p class="disc">${CONFIG.disclaimer}</p></div>`);
   const DC_WHY={
@@ -3143,6 +3146,9 @@ function screenTaxes(s){
   const totalExp=expKeyed.reduce((a,[,v])=>a+v,0);
   const secRow=t=>`<div class="tiny" style="font-family:var(--font-head);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:10px 0 2px">${t}</div>`;
   const line=(l,v,o)=>`<div class="${o&&o.go?"pl-row":""}" ${o&&o.go?`data-go="${o.go}"`:""} style="display:flex;justify-content:space-between;gap:10px;padding:4px 6px;margin:0 -6px;border-radius:7px;font-size:.9rem;${o&&o.go?"cursor:pointer;":""}${o&&o.top?"border-top:1px solid var(--line);margin-top:3px;padding-top:7px;":""}${o&&o.italic?"font-style:italic;":""}${o&&o.hl?"background:color-mix(in srgb, var(--warn) 16%, transparent);":""}">${o&&o.bold?`<b>${l}</b><b>${v}</b>`:`<span>${l}</span><b>${v}</b>`}</div>`;
+  // standard mileage joins the FORM math only when the books have no actual
+  // car costs (one method per car; conflicts go to the accountant instead)
+  const stdMi=(yR.mileageMiles>0&&!yR.methodConflict)?yR.mileageDeduction:0;
   sc.innerHTML =
     secRow("Income")
     + line("Gross receipts (Part I, Line 1)",money0(yR.income),{go:"income"})
@@ -3157,9 +3163,10 @@ function screenTaxes(s){
         const lbl=esc(lineLabel(k)).replace("⚠",`<span style="color:var(--warn)">⚠</span>`);
         return line(lbl+warn,money0(v),{go:k==="__none"?"__none":k==="__ask"?"askcpa":"sched:"+k,italic:k==="__ask",hl:k==="__none"});
       }).join(""):`<div class="sub" style="padding:4px 0">No business expenses yet</div>`)
-    + line("Total expenses",money0(totalExp),{top:true,bold:true,go:"expenses"})
-    + line("Net profit",money0(yR.book),{top:true,bold:true,go:"all"})
-    + (yR.mileageMiles>0?`<div class="tiny muted" style="padding:8px 0 0">🚗 Mileage tracked: ${yR.mileageMiles.toLocaleString()} mi ≈ ${money0(yR.mileageDeduction)} at ${Math.round(cfgT.mileageRatePerMile*100)}¢/mi · ${yR.methodConflict?"info for your accountant only: your books already have actual car costs, and only one method counts":"not in the numbers above; it lowers Est. taxable on the Reports page"}</div>`:"");
+    + (stdMi>0?line(`Car &amp; truck: standard mileage, calculated (Line 9) <span class="tiny muted">${yR.mileageMiles.toLocaleString()} mi at ${Math.round(cfgT.mileageRatePerMile*100)}¢</span>`,money0(stdMi),{italic:true}):"")
+    + line("Total expenses",money0(totalExp+stdMi),{top:true,bold:true,go:"expenses"})
+    + line(stdMi>0?"Net profit (est., mileage included)":"Net profit",money0(yR.book-stdMi),{top:true,bold:true,go:"all"})
+    + (yR.mileageMiles>0?`<div class="tiny muted" style="padding:8px 0 0">🚗 ${yR.methodConflict?`Mileage tracked: ${yR.mileageMiles.toLocaleString()} mi ≈ ${money0(yR.mileageDeduction)} at ${Math.round(cfgT.mileageRatePerMile*100)}¢/mi · info for your accountant only: your books already have actual car costs, and only one method counts per car`:`The standard mileage line is calculated from your logged miles, no cash behind it. Your accountant confirms the method before filing.`}</div>`:"");
   // every line opens a same-page popup with the transactions behind the number
   sc.querySelectorAll(".pl-row").forEach(r=>r.onclick=()=>{
     const go=r.dataset.go;
@@ -3183,7 +3190,7 @@ function screenTaxes(s){
     $("#ug-fix",m.o).onclick=()=>{m.close();plDrill("Needs a category (assign before filing)","__none",yT);};
     $("#ug-dl",m.o).onclick=()=>{m.close();fn();};
   };
-  $("#exp-schedc",s).onclick=gated(()=>exportScheduleC({expRows,cogs,netReceipts,grossProfit,totalExp},yR,yT));
+  $("#exp-schedc",s).onclick=gated(()=>exportScheduleC({expRows,cogs,netReceipts,grossProfit,totalExp,stdMi},yR,yT));
   $("#pdf-schedc",s).onclick=gated(()=>printCard(scCard,`Schedule C Summary ${yT}`));
   // ---- Mileage log (year-scoped totals; trips valued at their own year's rate) ----
   const miles=STATE.mileage.filter(m=>inPeriod(m.date,{year:yT})).reduce((a,m)=>a+(Number(m.miles)||0),0);
@@ -3288,7 +3295,9 @@ function screenReports(s){
   const P=repPeriod();
   const R=report(P,"default");
   if(!STATE.settings.plCols)STATE.settings.plCols={cash:false,tax:false};
-  const showCash=!!STATE.settings.plCols.cash, showTax=!!STATE.settings.plCols.tax;
+  let showCash=!!STATE.settings.plCols.cash, showTax=!!STATE.settings.plCols.tax, showBook=true;
+  const phoneCols=window.matchMedia&&window.matchMedia("(max-width:760px)").matches;
+  if(phoneCols){ showBook=PL_ONLY==="book"; showCash=PL_ONLY==="cash"; showTax=PL_ONLY==="tax"; }
 
   // ---- income by stream (business splits on money-in) ----
   const incBy={};
@@ -3321,7 +3330,7 @@ function screenReports(s){
 
   // ---- the table: label + THREE fixed columns. Hidden columns render as
   // empty space so nothing shifts left/right when views toggle on/off ----
-  const colDefs=[["book","Net P&L",true],["cash","Cash in vs out",showCash],["tax","Est. taxable",showTax]];
+  const colDefs=[["book","Net P&L",showBook],["cash","Cash in vs out",showCash],["tax","Est. taxable",showTax]];
   const grid=`grid-template-columns:minmax(0,1fr) repeat(3,112px)`;
   const cell=(v,on)=>`<span style="justify-self:end">${!on?"":(v==null?`<span class="muted">—</span>`:money0(v))}</span>`;
   const row=(label,vals,o)=>`<div class="${o&&o.go?"pl-row":""}" ${o&&o.go?`data-go="${o.go}"`:""} style="display:grid;${grid};gap:10px;align-items:center;padding:4px 6px;margin:0 -6px;border-radius:7px;font-size:.9rem;${o&&o.go?"cursor:pointer;":""}${o&&o.top?"border-top:1px solid var(--line);margin-top:3px;padding-top:7px;":""}${o&&o.italic?"font-style:italic;":""}${o&&o.hl?"background:color-mix(in srgb, var(--warn) 16%, transparent);":""}${o&&o.bold?"font-weight:700;":""}">
@@ -3367,9 +3376,10 @@ function screenReports(s){
   if((showCash||showTax))
     html+=row("Bottom line",{book:R.book,cash:showCash?R.cashFlow:null,tax:showTax?R.estTaxableProfit:null},{top:true,bold:true});
   const plCard=el(`<div class="card"><h2 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">Profit &amp; Loss (${esc(P.label)})
-      <span style="display:flex;gap:6px;margin-left:auto">
-        <button class="pill coral ${showCash?"on":""}" id="pl-cash" style="font-size:.72rem">+ Cash in vs out</button>
-        <button class="pill coral ${showTax?"on":""}" id="pl-tax" style="font-size:.72rem">+ Est. taxable</button>
+      <span style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
+        <button class="pill coral pl-solo ${phoneCols&&showBook?"on":""}" id="pl-book" style="font-size:.72rem">Net P&amp;L</button>
+        <button class="pill coral ${showCash?"on":""}" id="pl-cash" style="font-size:.72rem">${phoneCols?"Cash in vs out":"+ Cash in vs out"}</button>
+        <button class="pill coral ${showTax?"on":""}" id="pl-tax" style="font-size:.72rem">${phoneCols?"Est. taxable":"+ Est. taxable"}</button>
       </span></h2>
     <p class="small muted">Cash-based, your categories, every line tappable. Add the other two views and the "why they differ" lines show exactly where the numbers part ways.</p>
     <div id="pl-body">${html}</div>
@@ -3378,8 +3388,9 @@ function screenReports(s){
       <button class="btn ghost sm" id="pdf-pl">⬇ PDF</button></div>
     <p class="disc" style="text-align:center;margin-top:10px">${CONFIG.disclaimer}</p></div>`);
   s.appendChild(plCard);
-  plCard.querySelector("#pl-cash").onclick=async()=>{STATE.settings.plCols.cash=!showCash;await saveState();render();};
-  plCard.querySelector("#pl-tax").onclick=async()=>{STATE.settings.plCols.tax=!showTax;await saveState();render();};
+  plCard.querySelector("#pl-cash").onclick=async()=>{ if(phoneCols){PL_ONLY="cash";render();return;} STATE.settings.plCols.cash=!showCash;await saveState();render();};
+  plCard.querySelector("#pl-tax").onclick=async()=>{ if(phoneCols){PL_ONLY="tax";render();return;} STATE.settings.plCols.tax=!showTax;await saveState();render();};
+  const plb=plCard.querySelector("#pl-book"); if(plb)plb.onclick=()=>{ PL_ONLY="book"; render(); };
   plCard.querySelectorAll(".pl-row").forEach(r=>r.onclick=()=>{
     const label=r.querySelector("span").textContent.replace("⚠","").trim();
     plDrill(label,r.dataset.go,P);
@@ -3512,8 +3523,9 @@ function exportScheduleC(pl,y,yr){
   if(pl.cogs){rows.push(["COST OF GOODS",""]);rows.push(["Cost of goods sold (Line 4, Part III)",pl.cogs.toFixed(2)]);rows.push(["Gross profit",pl.grossProfit.toFixed(2)]);}
   rows.push(["EXPENSES (Part II, by line)",""]);
   pl.expRows.forEach(([l,v])=>rows.push([l.replace(/⚠ /,""),v.toFixed(2)]));
-  rows.push(["Total expenses",pl.totalExp.toFixed(2)]);
-  rows.push(["NET PROFIT",y.book.toFixed(2)]);
+  if(pl.stdMi>0)rows.push(["Car & truck: standard mileage, calculated (Line 9)",pl.stdMi.toFixed(2)]);
+  rows.push(["Total expenses",(pl.totalExp+(pl.stdMi||0)).toFixed(2)]);
+  rows.push([pl.stdMi>0?"NET PROFIT (est., mileage included)":"NET PROFIT",(y.book-(pl.stdMi||0)).toFixed(2)]);
   rows.push(["Est. taxable profit",y.estTaxableProfit.toFixed(2)]);
   if(y.mileageMiles>0)rows.push(["Mileage tracked (info)",`${y.mileageMiles} mi = ${y.mileageDeduction.toFixed(2)} at standard rate`]);
   if(y.methodConflict)rows.push(["","MILEAGE VS ACTUALS: estimate uses actual car costs; miles above are for the CPA's method comparison"]);
