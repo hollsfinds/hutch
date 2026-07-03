@@ -1236,7 +1236,10 @@ function actionItems(){
   const mdOcc=moneyDateDue();
   if(mdOcc){
     const days=Math.floor((Date.now()-new Date(mdOcc.getFullYear(),mdOcc.getMonth(),mdOcc.getDate()).getTime())/86400000);
-    items.push({key:"moneydate",label:days<1?"It's Money Date day":`Money Date is ${days} day${days>1?"s":""} overdue`,sub:"Ten minutes keeps the books honest",go:()=>{CURRENT="moneydate";render();}});
+    if(!STATE.lastMoneyDate)
+      items.push({key:"moneydate",hot:true,label:"Have your first Money Date!",sub:"Ten guided minutes: the whole app in one loop",go:()=>{CURRENT="moneydate";render();}});
+    else
+      items.push({key:"moneydate",label:days<1?"It's Money Date day":`Money Date is ${days} day${days>1?"s":""} overdue`,sub:"Ten minutes keeps the books honest",go:()=>{CURRENT="moneydate";render();}});
   } else if(!STATE.settings.moneyDate||!STATE.settings.moneyDate.freq){
     items.push({key:"mdsetup",label:"Pick your Money Date rhythm",sub:"A recurring ten minutes keeps the books honest",go:()=>{CURRENT="settings";render();}});
   }
@@ -3397,8 +3400,11 @@ function screenMoneyDate(s){
   ];
   const isDone=sd=> sd.auto? sd.done : (p.done.includes(sd.id)||!!sd.detect);
   const doneCount=stepDefs.filter(isDone).length;
-  const wt=el(`<div class="card"><h2>${userName()?esc(userName())+"'s":"Your"} Money Date 💛</h2>
-    <p class="small muted">Ten minutes${md.freq?", "+mdLabel(md):""}. Pour something nice, then just go top to bottom!</p>
+  const firstEverMD=!STATE.lastMoneyDate;
+  const wt=el(`<div class="card"><h2>${firstEverMD?`${userName()?esc(userName())+"'s":"Your"} FIRST Money Date 💛`:`${userName()?esc(userName())+"'s":"Your"} Money Date 💛`}</h2>
+    <p class="small muted">${firstEverMD
+      ?"This one loop is the whole app: bring money in, sort it, peek at your numbers, back it up. Do it once and you've got it! Pour something nice and go top to bottom."
+      :`Ten minutes${md.freq?", "+mdLabel(md):""}. Pour something nice, then just go top to bottom!`}</p>
     <p class="tiny muted" style="margin-top:-4px">${md.freq?`Next one: <b>${nxt?isoLocal(nxt):""}</b>`:`No rhythm set yet`} · <a href="#" id="md-gosettings">change the schedule in Settings</a></p>
     <div class="progress" style="margin:10px 0 14px"><i style="width:${Math.round(doneCount/stepDefs.length*100)}%"></i></div>
     <div id="mdw-steps"></div></div>`);
@@ -4421,7 +4427,9 @@ async function createVault(pin){
   // skipped setup = no completion celebration (they didn't complete it);
   // the finish-setup to-do carries them the rest of the way
   if(OB.data.skippedFrom) toast("Books are open! Finish setup anytime from your Home to-do.");
-  else party(`You're all set${userName()?", "+esc(userName()):""}! 💛`, `${esc(bizName())}'s books are officially open. Add your first transaction whenever you're ready.`);
+  else party(`You're all set${userName()?", "+esc(userName()):""}! 💛`,
+    `${esc(bizName())}'s books are officially open. Next up: your <b>first Money Date</b>, ten guided minutes that walk you through the whole loop (bring money in, sort it, see your numbers). It's the entire app in one sitting!`,
+    ()=>{CURRENT="moneydate";render();window.scrollTo(0,0);});
 }
 
 /* =====================================================================
