@@ -868,7 +868,7 @@ async function deriveKey(pin, saltB64){
   const base = await crypto.subtle.importKey("raw",new TextEncoder().encode(pin),"PBKDF2",false,["deriveKey"]);
   const key = await crypto.subtle.deriveKey(
     {name:"PBKDF2",salt,iterations:150000,hash:"SHA-256"},
-    base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+    base,{name:"AES-GCM",length:256},true,["encrypt","decrypt"]);   // extractable: session-unlock stashes it (see stashSessionKey)
   return {key, saltB64: btoa(String.fromCharCode(...salt))};
 }
 async function encryptState(state,key){
@@ -3319,7 +3319,7 @@ function resetPrompt(){
 async function resetApp(){
   try{ if(_db) _db.close(); }catch(e){}
   try{ localStorage.removeItem("fft_theme"); }catch(e){}
-  try{ localStorage.removeItem(OB_DRAFT_KEY); localStorage.removeItem("fft_page"); }catch(_){}   // wizard draft + remembered page go with it
+  try{ localStorage.removeItem(OB_DRAFT_KEY); localStorage.removeItem("fft_page"); sessionStorage.removeItem("fft_sk"); }catch(_){}   // wizard draft + remembered page + session key go with it
   await new Promise(res=>{ const req=indexedDB.deleteDatabase(DB_NAME); req.onsuccess=req.onerror=req.onblocked=()=>res(); });
   location.reload();
 }
@@ -4417,6 +4417,7 @@ async function createVault(pin){
   if(pin){
     const {key,saltB64}=await deriveKey(pin);
     _cryptoKey=key;
+    await stashSessionKey(key);
     const enc=await encryptState(STATE,key);
     // store a verifier so we can detect wrong PIN on unlock
     const verifier=await encryptState({ok:true},key);
@@ -4468,6 +4469,21 @@ document.addEventListener("keydown", e=>{
   else if(e.key==="Backspace"){ pinKey("⌫"); e.preventDefault(); }
   else if(e.key==="Enter"){ pinKey("✓"); }
 });
+/* SESSION UNLOCK: after a successful PIN entry the key lives in
+   sessionStorage, so a refresh doesn't re-ask. sessionStorage dies when the
+   tab/app closes, so at-rest encryption still holds for a closed app.
+   The Lock button and Start Over clear it immediately. */
+async function stashSessionKey(key){
+  try{ const raw=await crypto.subtle.exportKey("raw",key);
+    sessionStorage.setItem("fft_sk",btoa(String.fromCharCode(...new Uint8Array(raw)))); }catch(_){}
+}
+function clearSessionKey(){ try{ sessionStorage.removeItem("fft_sk"); }catch(_){} }
+async function getSessionKey(){
+  try{ const b=sessionStorage.getItem("fft_sk"); if(!b)return null;
+    const raw=Uint8Array.from(atob(b),c=>c.charCodeAt(0));
+    return await crypto.subtle.importKey("raw",raw,{name:"AES-GCM"},true,["encrypt","decrypt"]);
+  }catch(_){ return null; }
+}
 let _unlocking=false;
 async function tryUnlock(){
   if(_unlocking)return; _unlocking=true;
@@ -4476,6 +4492,7 @@ async function tryUnlock(){
     const {key}=await deriveKey(PIN_BUF, rec.salt);
     await decryptState(rec.verifier, key); // throws if wrong PIN
     _cryptoKey=key;
+    await stashSessionKey(key);
     STATE=migrate(await decryptState({iv:rec.iv,ct:rec.ct}, key));
     $("#lock").classList.add("hidden"); launchApp();
   }catch(e){
@@ -4497,7 +4514,7 @@ $("#restorefromlock").onclick=()=>{
   $("#rf-go",m.o).onclick=async()=>{
     if(!restored||!restored.transactions){toast("Load a valid backup first");return;}
     const pin=$("#rf-pin",m.o).value; if(!/^\d{4,6}$/.test(pin)){toast("PIN must be 4–6 digits");return;}
-    const {key,saltB64}=await deriveKey(pin); _cryptoKey=key; STATE=migrate(restored);
+    const {key,saltB64}=await deriveKey(pin); _cryptoKey=key; await stashSessionKey(key); STATE=migrate(restored);
     const enc=await encryptState(STATE,key); const verifier=await encryptState({ok:true},key);
     await idbPut(REC,{salt:saltB64,verifier,kdf:{alg:"PBKDF2-SHA256",iter:150000,cipher:"AES-GCM-256",v:1}, ...enc});
     m.close(); $("#lock").classList.add("hidden"); launchApp(); toast("Restored ✓");
@@ -4513,7 +4530,7 @@ function changePinPrompt(){
   $("#cp-go",m.o).onclick=async()=>{
     const a=$("#cp-pin",m.o).value,b=$("#cp-pin2",m.o).value;
     if(!/^\d{4,6}$/.test(a)){toast("4–6 digits");return;} if(a!==b){toast("Doesn't match");return;}
-    const {key,saltB64}=await deriveKey(a); _cryptoKey=key;
+    const {key,saltB64}=await deriveKey(a); _cryptoKey=key; await stashSessionKey(key);
     const enc=await encryptState(STATE,key); const verifier=await encryptState({ok:true},key);
     const rec=(await idbGet(REC))||{};
     await idbPut(REC,{...rec, _acked:true, salt:saltB64, verifier, noPin:false, plain:undefined, kdf:{alg:"PBKDF2-SHA256",iter:150000,cipher:"AES-GCM-256",v:1}, ...enc});
@@ -4567,7 +4584,7 @@ function maybeBackupNudge(){
   const last=STATE.lastBackup||0; const days=(Date.now()-last)/86400000;
   if(days>7){ setTimeout(()=>toast((userName()?userName()+", ":"")+"it's been a while since your last backup 💾"),1500); }
 }
-$("#lockbtn").onclick=()=>showLock();
+$("#lockbtn").onclick=()=>{clearSessionKey();showLock();};
 $("#menubtn").onclick=openDrawer; $("#sboverlay").onclick=closeDrawer;
 $("#resetfromlock").onclick=()=>resetPrompt();
 
@@ -4578,7 +4595,18 @@ async function boot(){
   const encVault = rec && rec.salt && rec.ct;         // encrypted (PIN) vault
   const plainVault = rec && rec.noPin && rec.plain;   // no-PIN (unencrypted) vault
   const acked = rec && rec._acked;
-  if(encVault){ showLock(); return; }
+  if(encVault){
+    const sk=await getSessionKey();
+    if(sk){
+      try{
+        await decryptState(rec.verifier, sk);          // proves it's the right key
+        _cryptoKey=sk;
+        STATE=migrate(await decryptState({iv:rec.iv,ct:rec.ct}, sk));
+        launchApp(); return;
+      }catch(_){ clearSessionKey(); }                   // stale/wrong -> normal lock
+    }
+    showLock(); return;
+  }
   if(plainVault){ _cryptoKey=null; STATE=migrate(JSON.parse(rec.plain)); launchApp(); return; }
   // no vault yet -> acknowledgment then onboarding
   if(acked){ startOnboarding(); }
