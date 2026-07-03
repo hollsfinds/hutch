@@ -1968,6 +1968,7 @@ function renderTxnList(){
         <optgroup label="Refund of an expense">${refundCats.map(c=>`<option value="${c.id}" ${inlineSel===c.id?"selected":""}>${esc(c.label)}</option>`).join("")}</optgroup>`
         :`<option value="" ${!inlineSel?"selected":""}>Category…</option>
         ${expCats.map(c=>`<option value="${c.id}" ${inlineSel===c.id?"selected":""}>${esc(c.label)}</option>`).join("")}`}
+        <option value="__newcat">+ New ${isInc?"income stream":"category"}…</option>
         ${curRet?`<option value="${curRet.id}" selected>${esc(curRet.label)} (retired)</option>`:""}
         <optgroup label="Not sure?">
           <option value="__askcpa" ${inlineSel==="__askcpa"?"selected":""}>Ask my accountant</option>
@@ -1984,6 +1985,7 @@ function renderTxnList(){
     if(inl)inl.onchange=e=>{
       if(e.target.value==="__ccpay"){ e.target.value=inlineSel; ccPayModal(t); return; }
       if(e.target.value==="__askcpa"){ e.target.value=inlineSel; askCpaNoteModal(t); return; }
+      if(e.target.value==="__newcat"){ e.target.value=inlineSel; catModal(t.bucketType==="income"?"income":null,(nc)=>applyInlinePick(t,nc.id)); return; }
       if(e.target.value) applyInlinePick(t,e.target.value);   // instant save, row leaves the pile, undo in the toast
     };
     row.querySelector(".desc").onclick=()=>txnModal(t);
@@ -2185,6 +2187,7 @@ function splitChoiceOpts(t,sp){
     o+=`<optgroup label="Business expense">${expCats.map(co).join("")}</optgroup>`;
   }
   if(curRet) o+=`<option value="${curRet.id}" selected>${esc(curRet.label)} (retired)</option>`;
+  o+=`<option value="__newcat">+ New ${isInc?"income stream":"category"}…</option>`;
   o+=`<optgroup label="Not business">
     <option value="__personal" ${cur==="__personal"?"selected":""}>Personal, not the business's</option>
     <option value="__askcpa" ${cur==="__askcpa"?"selected":""}>Ask my accountant</option>
@@ -2265,7 +2268,12 @@ function txnModal(t){
           <label class="fld" style="flex:0 0 140px"><span>Amount</span><div class="cashwrap ${!sp.amount?"attn":""}"><span>$</span><input type="number" step="0.01" class="sp-amt" value="${sp.amount?Number(sp.amount).toFixed(2):""}" placeholder="0.00"></div></label>
         </div>`:""}
       </div>`);
-      r.querySelector(".sp-what").onchange=e=>{applySplitChoice(sp,e.target.value);renderSplits();updateAlloc();};
+      r.querySelector(".sp-what").onchange=e=>{
+        if(e.target.value==="__newcat"){
+          catModal(t.bucketType==="income"?"income":null,(nc)=>{sp.tagState="business";sp.category=nc.id;renderSplits();updateAlloc();});
+          e.target.value=splitChoiceCur(sp); return;
+        }
+        applySplitChoice(sp,e.target.value);renderSplits();updateAlloc();};
       if(r.querySelector(".sp-amt")){
         r.querySelector(".sp-amt").oninput=e=>{sp.amount=parseFloat(e.target.value)||0;updateAlloc();e.target.closest(".cashwrap").classList.toggle("attn",!sp.amount);};
         r.querySelector(".sp-amt").onblur=e=>{const v=parseFloat(e.target.value);if(!isNaN(v))e.target.value=v.toFixed(2);};
@@ -3633,7 +3641,7 @@ function screenSettings(s){
   s.appendChild(legal);
   }
 }
-function catModal(presetLine){
+function catModal(presetLine,onSave){
   const isInc=presetLine==="income";
   const m=modal(`<h2>Add ${isInc?"an income stream":"a category"}</h2>
     <label class="fld"><span>Name</span><input type="text" id="c-label" placeholder="${isInc?"e.g. Etsy Sales":"e.g. Booth Rental"}"></label>
@@ -3642,8 +3650,10 @@ function catModal(presetLine){
     <button class="btn coral block" id="c-save">Add</button>`);
   $("#c-save",m.o).onclick=async()=>{
     const label=$("#c-label",m.o).value.trim(); if(!label){toast("Name it first!");return;}
-    STATE.categories.push({id:uid(),label,schedC:$("#c-line",m.o).value,custom:true,businessId:"default"});
-    await saveState(); m.close(); render(); toast("Category added!");
+    const nc={id:uid(),label,schedC:$("#c-line",m.o).value,custom:true,businessId:"default"};
+    STATE.categories.push(nc);
+    await saveState(); m.close(); render(); toast(isInc?"Income stream added!":"Category added!");
+    if(onSave)onSave(nc);
   };
 }
 function mergeCategories(pack){
