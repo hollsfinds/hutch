@@ -1,10 +1,10 @@
-/* FFT service worker — offline app shell.
+/* Hutch service worker — offline app shell.
    No user financial data is ever cached or transmitted; the app state
    lives only in the page's encrypted IndexedDB, never here.
    STRATEGY: network-first for the page itself (so deployed fixes reach
    buyers immediately), cache-first for fonts/icons/manifest (speed),
    with the cached shell as the offline fallback. */
-const CACHE = "fft-shell-v6";
+const CACHE = "hutch-shell-v7";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 // fonts are EMBEDDED in index.html as data: URIs (truly single-file, and
 // immune to file:// font-loading restrictions); nothing external, ever

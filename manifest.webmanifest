@@ -1,6 +1,6 @@
 {
-  "name": "FFT: Freelance Finance Tracker",
-  "short_name": "FFT",
+  "name": "Hutch · Freelance Finance Tracker",
+  "short_name": "Hutch",
   "description": "A warm, local-first bookkeeping + tax set-aside tracker for freelancers and side-hustlers. Your data stays on your device.",
   "start_url": "./index.html",
   "scope": "./",
